@@ -14,7 +14,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "DCBBF08A148B2162007418B5"
-               BuildableName = "TCG.app"
+               BuildableName = "Property Deal.app"
                BlueprintName = "Property Deal"
                ReferencedContainer = "container:Property Deal.xcodeproj">
             </BuildableReference>
@@ -32,7 +32,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "DCBBF08A148B2162007418B5"
-            BuildableName = "TCG.app"
+            BuildableName = "Property Deal.app"
             BlueprintName = "Property Deal"
             ReferencedContainer = "container:Property Deal.xcodeproj">
          </BuildableReference>
@@ -51,7 +51,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "DCBBF08A148B2162007418B5"
-            BuildableName = "TCG.app"
+            BuildableName = "Property Deal.app"
             BlueprintName = "Property Deal"
             ReferencedContainer = "container:Property Deal.xcodeproj">
          </BuildableReference>
@@ -69,7 +69,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "DCBBF08A148B2162007418B5"
-            BuildableName = "TCG.app"
+            BuildableName = "Property Deal.app"
             BlueprintName = "Property Deal"
             ReferencedContainer = "container:Property Deal.xcodeproj">
          </BuildableReference>

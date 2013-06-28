@@ -2555,8 +2555,8 @@ BOOL opponentReadyToPlay;
 - (void)showBlackBarWithText:(NSString*)text {
     if ([text isEqualToString:@"Ready!"])
         [[SimpleAudioEngine sharedEngine] playEffect:@"readysound.wav"];
-    else if ([text isEqualToString:@"Begin!"])
-        [[SimpleAudioEngine sharedEngine] playEffect:@"wardrums.wav"];
+    //else if ([text isEqualToString:@"Begin!"])
+        //[[SimpleAudioEngine sharedEngine] playEffect:@"wardrums.wav"];
     
     float screenTime = 1.5;
     id onScreenTime = [CCDelayTime actionWithDuration:screenTime];
