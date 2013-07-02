@@ -29,7 +29,6 @@ static Profile *myprofile = nil;
     @synchronized(self) {
         if (myprofile == nil)
             myprofile = [[self alloc] init];
-        
     }
     return myprofile;
 }
@@ -38,11 +37,6 @@ static Profile *myprofile = nil;
     [super init];
     
     currentDeckIndex = -1;
-    
-    opponentList = [[NSArray arrayWithObjects:@"Robert Zombie", @"Cornelius Monkington", @"Augmentron", @"Portabellus", @"Gorus", @"Robo Hood", @"Wild Eye Jones", @"Flesh Rot", @"Blood Gear", @"Captain Monkgan", nil] retain];
-    //opponentList = [[NSArray arrayWithObjects:@"Robo Hood", nil] retain];
-
-    opponentsOfTheDay = [[NSArray arrayWithObjects:@"Augmentron", @"Portabellus", @"Gorus", @"Robo Hood", @"Wild Eye Jones", @"Flesh Rot", @"Blood Gear", @"Captain Monkgan", nil] retain];
     
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
     if ([defaults valueForKey:@"decks"]) {
@@ -54,8 +48,6 @@ static Profile *myprofile = nil;
     
     if ([defaults valueForKey:@"currentDeck"]) {
         currentDeck = [defaults objectForKey:@"currentDeck"];
-        //[currentDeck addObject:@"Contagion"];
-        //[currentDeck addObject:@"Contagion"];
     }
     else {
         NSLog(@"Creating new deck...");

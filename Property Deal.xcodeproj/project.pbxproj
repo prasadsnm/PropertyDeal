@@ -979,8 +979,8 @@
 		DCBBF0A0148B2162007418B5 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
-				224078F8177B40B200930A40 /* backgroundwide-hd.png */,
 				224078F9177B40B200930A40 /* backgroundwide.png */,
+				224078F8177B40B200930A40 /* backgroundwide-hd.png */,
 				224078FA177B40B200930A40 /* card-hd.png */,
 				224078FB177B40B200930A40 /* card.png */,
 				224078FC177B40B200930A40 /* endturn-hd.png */,

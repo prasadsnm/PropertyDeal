@@ -26,6 +26,9 @@
         graveyard = [[NSMutableArray alloc] init];
         deck = [[Deck alloc] init];
         
+        hand = [[NSMutableArray alloc] init];
+        board = [[NSMutableArray alloc] init];
+        
         resourcePool = [[ResourcePool alloc] init];
         hp = 20;
     }
