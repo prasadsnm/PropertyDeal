@@ -25,6 +25,7 @@
     NSMutableArray *requiredCards;
     NSMutableArray *aiNotes;
     NSString *name;
+    NSString *subType;
     NSString *imagePath;
     NSString *type;
     NSString *playedSound;
@@ -52,6 +53,7 @@
 @property (nonatomic, assign) NSMutableArray *requiredCards;
 @property (nonatomic, assign) NSMutableArray *aiNotes;
 @property (nonatomic, assign) NSString *name;
+@property (nonatomic, assign) NSString *subType;
 @property (nonatomic, assign) NSString *imagePath;
 @property (nonatomic, assign) NSString *type;
 @property (nonatomic, assign) NSString *playedSound;

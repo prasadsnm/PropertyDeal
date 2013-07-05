@@ -35,6 +35,7 @@
 @synthesize dieNextTurn;
 @synthesize requiredCards;
 @synthesize aiNotes;
+@synthesize subType;
 
 -(id)initWithName:(NSString*)inputName image:(NSString*)inputPath type:(NSString*)inputType {
     if( (self=[super init])) {

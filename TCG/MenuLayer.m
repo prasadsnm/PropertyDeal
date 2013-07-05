@@ -8,11 +8,11 @@
 
 #import "MenuLayer.h"
 #import "GameLayer.h"
-#import "DeckBuilderLayer.h"
 #import "SimpleAudioEngine.h"
 #import "GameOverLayer.h"
 #import "StoreLayer.h"
 #import "PopUpLayer.h"
+#import "Profile.h"
 
 #define FLOAT_DISTANCE 20
 #define HEAD_MOVE_DISTANCE 80
@@ -359,7 +359,6 @@ NSString *fontName;
             [self switchToMenu:@"Play"];
     }
     else if (button.tag == 2) {
-        [[CCDirector sharedDirector] replaceScene:[CCTransitionFade transitionWithDuration:0.5 scene:[DeckBuilderLayer scene]]];
     }
     else if (button.tag == 3) {
         //[[CCDirector sharedDirector] replaceScene:[CCTransitionFade transitionWithDuration:0.5 scene:[GameOverLayer sceneWithVictory:NO subText:@"Myrus primeus" earnedCoins:30 fromMode:@"Practice"]]];

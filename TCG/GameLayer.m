@@ -17,7 +17,6 @@
 #import "SimpleAudioEngine.h"
 #import "Profile.h"
 #import "GameOverLayer.h"
-#import "Buff.h"
 #import "CardSprite.h"
 #import "PopUpLayer.h"
 #import <GameKit/GameKit.h>
@@ -53,7 +52,7 @@
 #define DEAL_SPEED 0.25
 #define FADE_DURATION 2.0
 #define FLOAT_TEXT_DELAY 0.3
-#define ENHANCEMENT_SPACING 5
+#define ENHANCEMENT_SPACING 7
 #define ENHANCEMENT_BUFFER 8
 #define OPPONENT_TURN_DELAY 1.2
 #define MAX_Z 10000
@@ -254,10 +253,6 @@ BOOL opponentReadyToPlay;
         factory = [[CardFactory alloc] init];
         
         Profile *profile = [Profile sharedProfile];
-        for (NSString *cardName in profile.currentDeck) {
-            [localPlayer.deck addCard:[factory spawnCard:cardName]];
-        }
-        [localPlayer.deck shuffle];
         
         // SET END PHASE BUTTON AND OPPONENT TURN INDICATOR
         endPhaseButton = [CCSprite spriteWithFile: @"EndPhase.png"];
@@ -1041,10 +1036,32 @@ BOOL opponentReadyToPlay;
     
     if (player == localPlayer) {
         if ([card.type isEqualToString:@"Property"] ||[card.type isEqualToString:@"Money"]) {
-            if ([card.type isEqualToString:@"Property"])
-                [playerBoard addObject:card];
-            else
-                [playerBoard insertObject:card atIndex:0];
+            if ([card.type isEqualToString:@"Property"]) {
+                BOOL shouldStack = NO;
+                for (Card *boardCard in player.board) {
+                    if ([boardCard.type isEqualToString:@"Property"] && [boardCard.subType isEqualToString:card.subType]) {
+                        [self reorderChild:card.thumbSprite z:boardCard.thumbSprite.zOrder-[boardCard.attachedCards count]];
+                        card.host = boardCard;
+                        [boardCard.attachedCards addObject:card];
+                        shouldStack = YES;
+                    }
+                }
+                if (shouldStack == NO)
+                    [playerBoard addObject:card];
+            }
+            else {
+                BOOL shouldStack = NO;
+                for (Card *boardCard in player.board) {
+                    if ([boardCard.type isEqualToString:@"Money"]) {
+                        [self reorderChild:card.thumbSprite z:boardCard.thumbSprite.zOrder-[boardCard.attachedCards count]];
+                        card.host = boardCard;
+                        [boardCard.attachedCards addObject:card];
+                        shouldStack = YES;
+                    }
+                }
+                if (shouldStack == NO)
+                    [playerBoard insertObject:card atIndex:0];
+            }
             
             if (tutorial && gamePhase == PLAYER_TURN && [player.board count] == 1 && [player.graveyard count] == 0) {
                 id delay = [CCDelayTime actionWithDuration:2.0];
@@ -1061,12 +1078,6 @@ BOOL opponentReadyToPlay;
                 [self flashCard:targetCard withColor:ccc3(0, 200, 0)];
             else
                 [self flashCard:targetCard withColor:ccc3(200, 0, 0)];
-            
-            if (tutorial && !tutorialFinished) {
-                id delay = [CCDelayTime actionWithDuration:2.0];
-                id showPopUp = [CCCallFuncND actionWithTarget:self selector:@selector(cocosShowTutorialWithName:data:) data:@"Tutorial Finished"];
-                [self runAction:[CCSequence actions:delay, showPopUp, nil]];
-            }
         }
         else if ([card.type isEqualToString:@"Action"]) {
             [card retain];
@@ -1470,25 +1481,7 @@ BOOL opponentReadyToPlay;
 
 // CARD ABILITY PROCS
 - (void)procBuffsOfOtherCardsOnCard:(Card*)card {
-    for (Card *boardCard in card.owner.board) {
-        for (Buff *buff in boardCard.givenBuffs) {
-            BOOL isValidTarget = NO;
-            for (NSString *type in card.subTypes) {
-                for (NSString *targetType in buff.targetTypes) {
-                    if ([type isEqualToString:targetType] && boardCard != card) {
-                        isValidTarget = YES;
-                    }
-                }
-            }
-            if (isValidTarget) {
-                id delay = [CCDelayTime actionWithDuration:FLOAT_TEXT_DELAY];
-                id flashCard = [CCCallFuncND actionWithTarget:self selector:@selector(cocosFlashCardGreen:data:) data:card];
-                [self runAction:[CCSequence actions:delay, flashCard, nil]];
-                if (buff.ability)
-                    [card.passiveAbilities addObject:buff.ability];
-            }
-        }
-    }
+
 }
 - (void)procCardPlayedAbilities:(Card*)card {
     if ([card hasAbility:@"Lookout"]) {
@@ -1802,17 +1795,15 @@ BOOL opponentReadyToPlay;
                 x = x - CARD_SPACING;
             }
             else if (player == leftPlayer) {
-                NSLog(@"Left PLayer");
                 card.thumbSprite.rotation = 90;
                 card.thumbSprite.position = [self makeScaledPointx:CARD_PLAYERY-80 y:NAMETAG_SIDE_Y-x+40];
-                move = [CCMoveTo actionWithDuration:DEAL_SPEED position:[self makeScaledPointx:CARD_PLAYERY y:NAMETAG_SIDE_Y-x+30]];
+                move = [CCMoveTo actionWithDuration:DEAL_SPEED position:[self makeScaledPointx:CARD_PLAYERY y:NAMETAG_SIDE_Y-x+20]];
                 x = x + CARD_SPACING;
             }
             else if (player == rightPlayer) {
-                NSLog(@"Right PLayer");
                 card.thumbSprite.rotation = 270;
                 card.thumbSprite.position = [self makeScaledPointx:480+80 y:320-NAMETAG_SIDE_Y-30+x];
-                move = [CCMoveTo actionWithDuration:DEAL_SPEED position:[self makeScaledPointx:480-CARD_PLAYERY y:320-NAMETAG_SIDE_Y-30+x]];
+                move = [CCMoveTo actionWithDuration:DEAL_SPEED position:[self makeScaledPointx:480-CARD_PLAYERY y:320-NAMETAG_SIDE_Y-20+x]];
                 x = x + CARD_SPACING;
             }
             [self addChild:card.thumbSprite];
@@ -2029,31 +2020,14 @@ BOOL opponentReadyToPlay;
                         else
                             [enhancementCard.thumbSprite runAction:[CCRotateTo actionWithDuration:0.0 angle:0]];
                     }
+                    enhancementBuffer += enhancementBuffer;
+                }
+                for (int i = [card.attachedCards count]-1; i >= 0; i--) {
+                    Card *loopCard = [card.attachedCards objectAtIndex:i];
+                    [self reorderChild:loopCard.thumbSprite z:card.thumbSprite.zOrder-1];
                 }
                 //[self hideEnhancementsForCard:card];
             }
-            // FOR SIDE BOARD CARDS
-            else if ([card.type isEqualToString:@"Resource"]) {
-                [self reorderChild:card.thumbSprite z:[card.owner.sideBoard indexOfObject:card]];
-                int boardCount = [sideBoard count];
-                int cardSpacing = 55;
-                int offset;
-                if (boardCount > 3) {
-                    cardSpacing = cardSpacing*2/(boardCount-1);
-                    offset = -55;
-                }
-                else
-                    offset = -((boardCount-1)*cardSpacing/2);
-                for (int i = 0; i < boardCount; i++) {
-                    Card *loopCard = [sideBoard objectAtIndex:i];
-                    if (loopCard == card) {
-                        targetX = offset + SIDEBOARD_X;
-                    }
-                    offset = offset + cardSpacing;
-                }
-                [card.thumbSprite runAction: [CCMoveTo actionWithDuration:0.2 position:[self makeScaledPointx:targetX y:sideBoardY]]];
-            }
-            
         }
         // FOR HAND CARDS
         else {
@@ -2129,7 +2103,7 @@ BOOL opponentReadyToPlay;
         [self setCardToProperBrightness:attachedCard withDelay:delay];
 }
 - (void)showEnhancementsForCard:(Card *)card {
-    int enhancementBuffer = ENHANCEMENT_BUFFER;
+    /*int enhancementBuffer = ENHANCEMENT_BUFFER;
     for (Card *enhancementCard in card.attachedCards) {
         [self reorderChild:enhancementCard.thumbSprite z:card.thumbSprite.zOrder+1];
         if (card.owner == localPlayer) {
@@ -2141,11 +2115,10 @@ BOOL opponentReadyToPlay;
             enhancementBuffer += ENHANCEMENT_BUFFER;
         }
         
-    }
+    }*/
 }
 - (void)hideEnhancementsForCard:(Card *)card {
-    // HIDE ENHANCEMENT CARDS
-    for (Card *enhancementCard in card.attachedCards) {
+    /*for (Card *enhancementCard in card.attachedCards) {
         [self reorderChild:enhancementCard.thumbSprite z:card.thumbSprite.zOrder-1];
         if (card.owner == localPlayer) {
             [enhancementCard.thumbSprite runAction: [CCMoveTo actionWithDuration:0.2 position:CGPointMake(enhancementCard.thumbSprite.position.x, [self makeScaledy:BOARD_Y-ENHANCEMENT_SPACING])]];
@@ -2153,62 +2126,14 @@ BOOL opponentReadyToPlay;
         else {
             [enhancementCard.thumbSprite runAction: [CCMoveTo actionWithDuration:0.2 position:CGPointMake(enhancementCard.thumbSprite.position.x, [self makeScaledy:320-BOARD_Y+ENHANCEMENT_SPACING])]];
         }
-        
+    }*/
+    for (int i = [card.attachedCards count]-1; i >= 0; i--) {
+        Card *attachedCard = [card.attachedCards objectAtIndex:i];
+        [self reorderChild:attachedCard.thumbSprite z:card.thumbSprite.zOrder-1];
     }
 }
 - (void)updateResourcePanel {
-    int offsetMultiplier = 1;
-    // UPDATE LOCAL PLAYER RESOURCES
-    for (Resource *resource in localPlayer.resourcePool.resources) {
-        // SHIFT ICON IF RESOURCE NUMBER IS LESS THAN 10 OR GREATER THAN 100 OR 1000
-        int iconBuffer = [self getIconBufferForAmount:resource.amount];
-        
-        if (resource.graphicsCreated == NO) {
-            [resource createSpriteAndLabel:[self makeScaledInt:14]];
-            [resource.label setColor:ccc3(40, 40, 40)];
-            [resource.label setPosition:[self makeShiftedPointx:HEARTX+RESOURCE_SPACING*offsetMultiplier y:RESOURCE_Y withShift:65]];
-            [self addChild:resource.sprite z:1000];
-            [self addChild:resource.label z:1000];
-        }
-        
-        // TEMPORARY FIX FOR RESOURCES DISAPPEARING
-        if ([resource.label retainCount] <= 1 || [resource.sprite retainCount] <= 1) {
-            NSLog(@"Resource Label retaincount: %d",[resource.label retainCount]);
-            NSLog(@"Resource Icon retaincount: %d",[resource.sprite retainCount]);
-            [self removeChild:resource.sprite cleanup:YES];
-            [self removeChild:resource.label cleanup:YES];
-            [resource createSpriteAndLabel:[self makeScaledInt:14]];
-            [resource.label setColor:ccc3(40, 40, 40)];
-            [resource.label setPosition:[self makeShiftedPointx:HEARTX+RESOURCE_SPACING*offsetMultiplier y:RESOURCE_Y withShift:65]];
-            [self addChild:resource.sprite z:1000];
-            [self addChild:resource.label z:1000];
-        }
-        [resource.sprite setPosition:[self makeShiftedPointx:HEARTX+RESOURCE_SPACING*offsetMultiplier+ICON_SPACING+iconBuffer y:RESOURCE_Y withShift:65]];
-        [resource.label setString:[NSString stringWithFormat:@"%d",resource.amount]];
-        offsetMultiplier++;
-    }
-    
-    // UPDATE OPPONENT PLAYER RESOURCES
-    offsetMultiplier = 1;
-    for (Resource *resource in opponentPlayer.resourcePool.resources) {
-        // SHIFT ICON IF RESOURCE NUMBER IS LESS THAN 10 OR GREATER THAN 100 OR 1000
-        int iconBuffer = [self getIconBufferForAmount:resource.amount];
-        
-        if (resource.graphicsCreated == NO) {
-            [resource createSpriteAndLabel:[self makeScaledInt:14]];
-            [resource.label setColor:ccc3(40, 40, 40)];
-            [resource.label setPosition:[self makeShiftedPointx:HEARTX+RESOURCE_SPACING*offsetMultiplier y:320-RESOURCE_Y withShift:65]];
-            [self addChild:resource.sprite z:1000];
-            [self addChild:resource.label z:1000];
-        }
-        [resource.sprite setPosition:[self makeShiftedPointx:HEARTX+RESOURCE_SPACING*offsetMultiplier+ICON_SPACING+iconBuffer y:320-RESOURCE_Y withShift:65]];
-        [resource.label setString:[NSString stringWithFormat:@"%d",resource.amount]];
-        offsetMultiplier++;
-    }
-    
-    // UPDATE HP OF BOTH PLAYERS
-    [playerHPLabel setString:[NSString stringWithFormat:@"%d",localPlayer.hp]];
-    [opponentHPLabel setString:[NSString stringWithFormat:@"%d",opponentPlayer.hp]];
+
 }
 - (void)floatText:(int)amount forResource:(Resource*)resource forPlayer:(Player*)player {
     NSString *prefix;
@@ -2693,35 +2618,26 @@ BOOL opponentReadyToPlay;
         if (CGRectContainsPoint(card.thumbSprite.boundingBox, location)) {
             pickedCard = card;
             // SHOW ENHANCEMENTS AND CYCLE THROUGH THEM
-            if (lastPickedCard == card) {
-                if ([card.attachedCards count] > 0) {
-                    [self showEnhancementsForCard:card];
-                    pickedCard = [card.attachedCards objectAtIndex:[card.attachedCards count]-1];
-                    [self reorderChild:pickedCard.thumbSprite z:card.thumbSprite.zOrder+2];
-                }
-            }
-            else if ([card.attachedCards containsObject:lastPickedCard]) {
-                if ([card.attachedCards count] > 1) {
-                    // CYCLE CARDS
-                    for (int i = 1; i < [card.attachedCards count]; i++) {
-                        [card.attachedCards exchangeObjectAtIndex:0 withObjectAtIndex:i];
+            if ([card.attachedCards count] > 0) {
+                Card *lastCard = [card.attachedCards objectAtIndex:[card.attachedCards count]-1];
+                if (lastPickedCard == card) {
+                    if ([card.attachedCards count] > 0) {
+                        [self showEnhancementsForCard:card];
+                        pickedCard = [card.attachedCards objectAtIndex:0];
+                        [self reorderChild:pickedCard.thumbSprite z:card.thumbSprite.zOrder+2];
                     }
-                    [self showEnhancementsForCard:card];
-                    pickedCard = [card.attachedCards objectAtIndex:[card.attachedCards count]-1];
-                    [self reorderChild:pickedCard.thumbSprite z:card.thumbSprite.zOrder+2];                    
                 }
-                else {
+                else if (lastPickedCard == lastCard) {
+                    pickedCard = card;
                     [self hideEnhancementsForCard:card];
                 }
-            }
-        }
-    }
-    
-    for (Card *card in playerSideBoard) {
-        if (CGRectContainsPoint(card.thumbSprite.boundingBox, location)) {
-            // MAKE SURE PLAYER CAN'T SELECT CARD UNDER BIG CARD
-            if (bigCard == nil) {
-                pickedCard = card;
+                else if ([card.attachedCards containsObject:lastPickedCard]) {
+                    int index = [card.attachedCards indexOfObject:lastPickedCard];
+                    index++;
+                    [self hideEnhancementsForCard:card];
+                    pickedCard = [card.attachedCards objectAtIndex:index];
+                    [self reorderChild:pickedCard.thumbSprite z:card.thumbSprite.zOrder+2];
+                }
             }
         }
     }
@@ -2735,13 +2651,13 @@ BOOL opponentReadyToPlay;
         }
     }
     for (Card *card in opponentBoard) {
-        [self hideEnhancementsForCard:card];
+        //[self hideEnhancementsForCard:card];
         if (CGRectContainsPoint(card.thumbSprite.boundingBox, location)) {
             pickedCard = card;
             // SHOW ENHANCEMENTS AND CYCLE THROUGH THEM
             if (lastPickedCard == card) {
                 if ([card.attachedCards count] > 0) {
-                    [self showEnhancementsForCard:card];
+                    //[self showEnhancementsForCard:card];
                     pickedCard = [card.attachedCards objectAtIndex:[card.attachedCards count]-1];
                     [self reorderChild:pickedCard.thumbSprite z:card.thumbSprite.zOrder+100];
                 }
@@ -2749,28 +2665,20 @@ BOOL opponentReadyToPlay;
             else if ([card.attachedCards containsObject:lastPickedCard]) {
                 if ([card.attachedCards count] > 1) {
                     // CYCLE CARDS
-                    for (int i = 1; i < [card.attachedCards count]; i++) {
+                    /*for (int i = 1; i < [card.attachedCards count]; i++) {
                         [card.attachedCards exchangeObjectAtIndex:0 withObjectAtIndex:i];
-                    }
-                    [self showEnhancementsForCard:card];
+                    }*/
+                    //[self showEnhancementsForCard:card];
                     pickedCard = [card.attachedCards objectAtIndex:[card.attachedCards count]-1];
                     [self reorderChild:pickedCard.thumbSprite z:card.thumbSprite.zOrder+100];                    
                 }
                 else {
-                    [self hideEnhancementsForCard:card];
+                    //[self hideEnhancementsForCard:card];
                 }
             }
         }
     }
     
-    for (Card *card in opponentSideBoard) {
-        if (CGRectContainsPoint(card.thumbSprite.boundingBox, location)) {
-            // MAKE SURE PLAYER CAN'T SELECT CARD UNDER BIG CARD
-            if (bigCard == nil) {
-                pickedCard = card;
-            }
-        }
-    }
     [self setAllCardsToProperBrightness];
     if (pickedCard != nil) {
         [self hideBigCard];
