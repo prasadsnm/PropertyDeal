@@ -231,8 +231,6 @@
 		DCD7DE2A14B9316500B4495A /* Resource.m in Sources */ = {isa = PBXBuildFile; fileRef = DCD7DE2914B9316500B4495A /* Resource.m */; };
 		DCD7DE2D14B936B700B4495A /* Player.m in Sources */ = {isa = PBXBuildFile; fileRef = DCD7DE2C14B936B700B4495A /* Player.m */; };
 		DCD7DE3014B94E6800B4495A /* ResourcePool.m in Sources */ = {isa = PBXBuildFile; fileRef = DCD7DE2F14B94E6700B4495A /* ResourcePool.m */; };
-		DCD7DE4014BC090500B4495A /* EndPhase.png in Resources */ = {isa = PBXBuildFile; fileRef = DCD7DE3E14BC090500B4495A /* EndPhase.png */; };
-		DCD7DE4114BC090500B4495A /* EndPhase-hd.png in Resources */ = {isa = PBXBuildFile; fileRef = DCD7DE3F14BC090500B4495A /* EndPhase-hd.png */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -598,8 +596,6 @@
 		DCD7DE2C14B936B700B4495A /* Player.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = Player.m; sourceTree = "<group>"; };
 		DCD7DE2E14B94E6700B4495A /* ResourcePool.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ResourcePool.h; sourceTree = "<group>"; };
 		DCD7DE2F14B94E6700B4495A /* ResourcePool.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = ResourcePool.m; sourceTree = "<group>"; };
-		DCD7DE3E14BC090500B4495A /* EndPhase.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = EndPhase.png; sourceTree = "<group>"; };
-		DCD7DE3F14BC090500B4495A /* EndPhase-hd.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "EndPhase-hd.png"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -844,8 +840,6 @@
 				221A980815316E6C00351867 /* Resources */,
 				22792FBB158002630075BF80 /* BlackBar.png */,
 				22792FBC158002630075BF80 /* BlackBar-hd.png */,
-				DCD7DE3E14BC090500B4495A /* EndPhase.png */,
-				DCD7DE3F14BC090500B4495A /* EndPhase-hd.png */,
 			);
 			name = UI;
 			sourceTree = "<group>";
@@ -1311,8 +1305,6 @@
 			files = (
 				DCBBF0A4148B2162007418B5 /* fps_images.png in Resources */,
 				DCBBF0B3148B2162007418B5 /* iTunesArtwork in Resources */,
-				DCD7DE4014BC090500B4495A /* EndPhase.png in Resources */,
-				DCD7DE4114BC090500B4495A /* EndPhase-hd.png in Resources */,
 				DCB00CBE14D86C4000589013 /* death.wav in Resources */,
 				DC7F0D8814E9C3D500381C2B /* card.wav in Resources */,
 				DC929E1014F9E4090059535D /* select.wav in Resources */,

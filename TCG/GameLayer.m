@@ -36,8 +36,8 @@
 #define BOARD_Y 124
 #define BOARD_SPACING 40;
 #define BOARD_SCALE 0.40
-#define ENDPHASE_X 65
-#define ENDPHASE_Y 311
+#define ENDPHASE_X 425
+#define ENDPHASE_Y 295
 #define MID_TAB_X 180
 #define OPPONENT_TURN_GRAPHIC_X 20
 #define WAITING_FOR_OPPONENT_GRAPHIC_X 40
@@ -81,7 +81,7 @@ CCSprite *defendButton;
 CCSprite *abilityButton;
 CCSprite *targetButton;
 CCSprite *cancelButton;
-CCSprite *endPhaseButton;
+CCSprite *endTurnButton;
 CCSprite *playButton;
 CCSprite *redealButton;
 CCSprite *opponentTurnGraphic;
@@ -255,17 +255,17 @@ BOOL opponentReadyToPlay;
         Profile *profile = [Profile sharedProfile];
         
         // SET END PHASE BUTTON AND OPPONENT TURN INDICATOR
-        endPhaseButton = [CCSprite spriteWithFile: @"EndPhase.png"];
-        [endPhaseButton setPosition:[self makeScaledPointx:ENDPHASE_X y:ENDPHASE_Y+20]];
-        [self addChild:endPhaseButton z:MAX_Z];
+        endTurnButton = [CCSprite spriteWithFile: @"endturn.png"];
+        [endTurnButton setPosition:[self makeScaledPointx:ENDPHASE_X y:ENDPHASE_Y]];
+        [self addChild:endTurnButton z:MAX_Z];
         
         /*opponentTurnGraphic = [CCSprite spriteWithFile: @"OpponentsTurn.png"];
         [opponentTurnGraphic setPosition:[self makeScaledPointx:ENDPHASE_X + OPPONENT_TURN_GRAPHIC_X y:ENDPHASE_Y+20]];
         [self addChild:opponentTurnGraphic z:MAX_Z];*/
         
-        waitingForOpponentGraphic = [CCSprite spriteWithFile: @"WaitingForOpponent.png"];
+        /*waitingForOpponentGraphic = [CCSprite spriteWithFile: @"WaitingForOpponent.png"];
         [waitingForOpponentGraphic setPosition:[self makeScaledPointx:ENDPHASE_X + WAITING_FOR_OPPONENT_GRAPHIC_X y:ENDPHASE_Y+20]];
-        [self addChild:waitingForOpponentGraphic z:MAX_Z];
+        [self addChild:waitingForOpponentGraphic z:MAX_Z];*/
         
         /*playButton = [CCSprite spriteWithFile: @"Play.png"];
         [playButton setPosition:[self makeScaledPointx:ENDPHASE_X y:ENDPHASE_Y+20]];
@@ -523,6 +523,9 @@ BOOL opponentReadyToPlay;
         [self runAction:[CCSequence actions:[CCDelayTime actionWithDuration:2.0],[CCCallFuncND actionWithTarget:self selector:@selector(cocosShowTutorialWithName:data:) data:@"First Round"], nil]];
 }
 - (void)endPhase {
+    [self drawCardForPlayer:localPlayer];
+    [self drawCardForPlayer:localPlayer];
+    /*
     [self stopFlashingEndTurn];
     switch (gamePhase) {
         case PLAYER_TURN:
@@ -549,6 +552,7 @@ BOOL opponentReadyToPlay;
         default:
             break;
     }
+    */
 }
 - (void)doUpkeepPhase:(Player *)player {
     NSArray *sideBoard;
@@ -1852,12 +1856,13 @@ BOOL opponentReadyToPlay;
 - (BOOL)drawCardForPlayer:(Player*)player {
     if (player == localPlayer) {
         int x = CARD_STARTX + [playerHand count]*CARD_SPACING;
-        Card *card = [player.deck drawCard];
+        Card *card = [deck drawCard];
         if (card == nil)
             return NO;
         [self addCardToHand:card forPlayer:player];
         card.sprite = [CCSprite spriteWithFile:card.imagePath];
-        card.thumbSprite = [CCSprite spriteWithFile:[card getThumbPath]];
+        card.thumbSprite = [CCSprite spriteWithFile:card.imagePath];
+        card.thumbSprite.scale = 0.5;
         card.thumbSprite.position = [self makeScaledPointx:x y:CARD_PLAYERY - 80];
         [self addChild:card.thumbSprite z:zOrder];
         id move = [CCMoveTo actionWithDuration:DEAL_SPEED position:[self makeScaledPointx:x y:CARD_PLAYERY]];
@@ -1878,7 +1883,7 @@ BOOL opponentReadyToPlay;
         id playSound = [CCCallFuncND actionWithTarget:self selector:@selector(cocosPlaySoundWithName:data:) data:@"card.wav"];
         [card.thumbSprite runAction:[CCSequence actions:playSound, move, nil]];
     }
-    [self reorderChild:endPhaseButton z:zOrder];
+    [self reorderChild:endTurnButton z:zOrder];
     return YES;
 }
 - (void)placeCardInHand:(Card*)card forPlayer:(Player*)player withDelay:(float)delayTime {
@@ -1906,7 +1911,7 @@ BOOL opponentReadyToPlay;
         id playSound = [CCCallFuncND actionWithTarget:self selector:@selector(cocosPlaySoundWithName:data:) data:@"card.wav"];
         [card.thumbSprite runAction:[CCSequence actions:delay, playSound, move, nil]];
     }
-    [self reorderChild:endPhaseButton z:zOrder];
+    [self reorderChild:endTurnButton z:zOrder];
 }
 - (void)moveCardToFrontOfHand:(Card *)card {
     Card* foundCard = nil;
@@ -2020,7 +2025,7 @@ BOOL opponentReadyToPlay;
                         else
                             [enhancementCard.thumbSprite runAction:[CCRotateTo actionWithDuration:0.0 angle:0]];
                     }
-                    enhancementBuffer += enhancementBuffer;
+                    enhancementBuffer += ENHANCEMENT_SPACING;
                 }
                 for (int i = [card.attachedCards count]-1; i >= 0; i--) {
                     Card *loopCard = [card.attachedCards objectAtIndex:i];
@@ -2476,12 +2481,12 @@ BOOL opponentReadyToPlay;
     id fadeToColor = [CCTintTo actionWithDuration:1.0 red:0 green:0 blue:0];
     id fadeToStandard = [CCTintTo actionWithDuration:1.0 red:255 green:255 blue:255];
     id repeatForever = [CCRepeatForever actionWithAction:[CCSequence actions:fadeToColor,fadeToStandard,nil]];
-    [endPhaseButton runAction:repeatForever];
+    [endTurnButton runAction:repeatForever];
 }
 - (void)stopFlashingEndTurn {
-    [endPhaseButton stopAllActions];
+    [endTurnButton stopAllActions];
     id fadeToStandard = [CCTintTo actionWithDuration:0.2 red:255 green:255 blue:255];
-    [endPhaseButton runAction:fadeToStandard];
+    [endTurnButton runAction:fadeToStandard];
 }
 
 // SOUND FUNCTIONS
@@ -2599,10 +2604,10 @@ BOOL opponentReadyToPlay;
     [waitingForOpponentGraphic runAction:[CCMoveTo actionWithDuration:0.2 position:[self makeScaledPointx:ENDPHASE_X+WAITING_FOR_OPPONENT_GRAPHIC_X y:ENDPHASE_Y+20]]];
 }
 - (void)showEndPhase {
-    [endPhaseButton runAction:[CCMoveTo actionWithDuration:0.2 position:[self makeScaledPointx:ENDPHASE_X y:ENDPHASE_Y]]];
+    [endTurnButton runAction:[CCMoveTo actionWithDuration:0.2 position:[self makeScaledPointx:ENDPHASE_X y:ENDPHASE_Y]]];
 }
 - (void)hideEndPhase {
-    [endPhaseButton runAction:[CCMoveTo actionWithDuration:0.2 position:[self makeScaledPointx:ENDPHASE_X y:ENDPHASE_Y+20]]];
+    [endTurnButton runAction:[CCMoveTo actionWithDuration:0.2 position:[self makeScaledPointx:ENDPHASE_X y:ENDPHASE_Y+20]]];
 }
 - (void)selectCardAtLocation:(CGPoint)location {
     Card *lastPickedCard = pickedCard;
@@ -2695,7 +2700,7 @@ BOOL opponentReadyToPlay;
     }
     
     // CHECK IF END PHASE BUTTON IS PRESSED
-    if (endPhaseButton != nil && CGRectContainsPoint(endPhaseButton.boundingBox, location)) {
+    if (endTurnButton != nil && CGRectContainsPoint(endTurnButton.boundingBox, location)) {
         if (gamePhase == PLAYER_TURN || gamePhase == PLAYER_DEFEND) {
             [self endPhase];
             return YES;
