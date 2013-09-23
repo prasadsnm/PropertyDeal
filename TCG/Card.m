@@ -151,14 +151,10 @@
 }
 
 -(BOOL)hasAbility:(NSString *)ability {
-    for (NSString *loopAbility in passiveAbilities) {
+    /*for (NSString *loopAbility in self.passiveAbilities) {
         if ([ability isEqualToString:loopAbility])
             return YES;
-    }
-    for (NSString *loopAbility in activeAbilities) {
-        if ([ability isEqualToString:loopAbility])
-            return YES;
-    }
+    }*/
     return NO;
 }
 

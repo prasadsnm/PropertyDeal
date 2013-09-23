@@ -18,6 +18,8 @@
 		<string>iconrobotmagic144.png</string>
 		<string>Default.png</string>
 		<string>Default@2x.png</string>
+		<string>icon57.png</string>
+		<string>icon114.png</string>
 	</array>
 	<key>CFBundleIcons</key>
 	<dict>
@@ -31,6 +33,8 @@
 				<string>iconrobotmagic144.png</string>
 				<string>Default.png</string>
 				<string>Default@2x.png</string>
+				<string>icon57.png</string>
+				<string>icon114.png</string>
 			</array>
 			<key>UIPrerenderedIcon</key>
 			<true/>
@@ -69,5 +73,7 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<false/>
 </dict>
 </plist>

@@ -25,7 +25,7 @@
 #define CARD_STARTX 200
 #define CARD_PLAYERY 30
 #define NAMETAG_X 140
-#define NAMETAG_SIDE_Y 240
+#define NAMETAG_SIDE_Y 260
 #define BIG_CARDX 420
 #define BIG_CARDY 90
 #define HEARTX 300
@@ -35,7 +35,8 @@
 #define BOARD_CENTER_X 240
 #define BOARD_Y 124
 #define BOARD_SPACING 40;
-#define BOARD_SCALE 0.40
+#define HAND_SCALE 0.45
+#define BOARD_SCALE 0.35
 #define ENDPHASE_X 425
 #define ENDPHASE_Y 295
 #define MID_TAB_X 180
@@ -72,13 +73,11 @@ Player *localPlayer;
 Player *opponentPlayer;
 Player *leftPlayer;
 Player *rightPlayer;
+Player *topPlayer;
 Card *pickedCard;
 Card *opponentActiveCard;
 Card *playerActiveCard;
 CardSprite *bigCard;
-CCSprite *attackButton;
-CCSprite *defendButton;
-CCSprite *abilityButton;
 CCSprite *targetButton;
 CCSprite *cancelButton;
 CCSprite *endTurnButton;
@@ -87,24 +86,12 @@ CCSprite *redealButton;
 CCSprite *opponentTurnGraphic;
 CCSprite *waitingForOpponentGraphic;
 CCSprite *selectATargetGraphic;
-CCSprite *playerResourceBar;
-CCSprite *opponentResourceBar;
-CCSprite *playerHPSprite;
-CCSprite *opponentHPSprite;
 CCSprite *menuButton;
 CCLabelTTF *playerHPLabel;
 CCLabelTTF *opponentHPLabel;
 CardFactory *factory;
 GameOverLayer *gameOverLayer;
 PopUpLayer *popUpMenuLayer;
-NSMutableArray *playerHand;
-NSMutableArray *opponentHand;
-NSMutableArray *playerBoard;
-NSMutableArray *opponentBoard;
-NSMutableArray *playerSideBoard;
-NSMutableArray *opponentSideBoard;
-NSMutableArray *playerActionBoard;
-NSMutableArray *opponentActionBoard;
 NSString *gameState;
 BOOL rotated;
 BOOL dragging;
@@ -150,6 +137,7 @@ BOOL opponentReadyToPlay;
 	GameLayer *layer = [GameLayer node];
     
     [layer setUpPractice];
+    [layer startGame];
     [layer dealFirstHand:nil];
     layer.opponentIsHuman = NO;
 	
@@ -203,26 +191,13 @@ BOOL opponentReadyToPlay;
 	// Apple recommends to re-assign "self" with the "super" return value
 	if( (self=[super init])) {
         localPlayer = [[Player alloc] init];
-        opponentPlayer = [[Player alloc] initWithAI];
+        topPlayer = [[Player alloc] initWithAI];
         leftPlayer = [[Player alloc] initWithAI];
         rightPlayer = [[Player alloc] initWithAI];
-        opponentPlayer.ai.opponent = localPlayer;
-        playerHand = [[NSMutableArray alloc] init];
-        opponentHand = [[NSMutableArray alloc] init];
-        playerBoard = [[NSMutableArray alloc] init];
-        opponentBoard = [[NSMutableArray alloc] init];
-        playerSideBoard = [[NSMutableArray alloc] init];
-        opponentSideBoard = [[NSMutableArray alloc] init];
-        playerActionBoard = [[NSMutableArray alloc] init];
-        opponentActionBoard = [[NSMutableArray alloc] init];
-        localPlayer.hand = playerHand;
-        localPlayer.board = playerBoard;
-        localPlayer.sideBoard = playerSideBoard;
-        localPlayer.actionBoard = playerActionBoard;
-        opponentPlayer.hand = opponentHand;
-        opponentPlayer.board = opponentBoard;
-        opponentPlayer.sideBoard = opponentSideBoard;
-        opponentPlayer.actionBoard = opponentActionBoard;
+        topPlayer.ai.opponent = localPlayer;
+        leftPlayer.ai.opponent = localPlayer;
+        rightPlayer.ai.opponent = localPlayer;
+        opponentPlayer = topPlayer;
         zOrder = 1;
         redealCount = 0;
         ourRoll = 0;
@@ -303,14 +278,6 @@ BOOL opponentReadyToPlay;
 	// cocos2d will automatically release all the children (Label)
     [localPlayer release];
     [opponentPlayer release];
-    [playerBoard release];
-    [opponentBoard release];
-    [playerSideBoard release];
-    [opponentSideBoard release];
-    [playerHand release];
-    [opponentHand release];
-    [playerActionBoard release];
-    [opponentActionBoard release];
 	
 	[super dealloc];
 }
@@ -341,20 +308,35 @@ BOOL opponentReadyToPlay;
             dragging = YES;
         }
         else if ([pickedCard.type isEqualToString:@"Enhancement"] || [pickedCard.type isEqualToString:@"Action"]) {
-            if ([pickedCard hasTargetType:@"Fighters"]) {
+            if ([pickedCard hasTargetType:@"Property"]) {
                 Card *foundCard = nil;
-                for (Card *card in playerBoard) {
+                for (Card *card in localPlayer.board) {
                     [self setCardToProperBrightness:card withDelay:NO];
-                    if (CGRectContainsPoint(card.thumbSprite.boundingBox, location)) {
+                    if (CGRectContainsPoint(card.thumbSprite.boundingBox, location) && [pickedCard hasTargetType:card.type]) {
                         foundCard = card;
                     }
                 }
-                for (Card *card in opponentBoard) {
+                
+                // CHECK ALL PLAYERS
+                for (Card *card in leftPlayer.board) {
                     [self setCardToProperBrightness:card withDelay:NO];
-                    if (CGRectContainsPoint(card.thumbSprite.boundingBox, location)) {
+                    if (CGRectContainsPoint(card.thumbSprite.boundingBox, location) && [pickedCard hasTargetType:card.type]) {
                         foundCard = card;
                     }
                 }
+                for (Card *card in topPlayer.board) {
+                    [self setCardToProperBrightness:card withDelay:NO];
+                    if (CGRectContainsPoint(card.thumbSprite.boundingBox, location) && [pickedCard hasTargetType:card.type]) {
+                        foundCard = card;
+                    }
+                }
+                for (Card *card in rightPlayer.board) {
+                    [self setCardToProperBrightness:card withDelay:NO];
+                    if (CGRectContainsPoint(card.thumbSprite.boundingBox, location) && [pickedCard hasTargetType:card.type]) {
+                        foundCard = card;
+                    }
+                }
+                
                 if (foundCard != nil) {
                     [bigCard showStatsForCard:foundCard];
                     [bigCard setOpacity:255];
@@ -370,17 +352,15 @@ BOOL opponentReadyToPlay;
                 }    
             }
             if ([pickedCard hasTargetType:@"Players"]) {
-                [playerResourceBar setColor:ccc3(255, 255, 255)];
-                [opponentResourceBar setColor:ccc3(255, 255, 255)];
                 int heightTouchBuffer = 30;
                 //CGRect opponentBox = CGRectMake(opponentResourceBar.boundingBox.origin.x, opponentResourceBar.boundingBox.origin.y-heightTouchBuffer, opponentResourceBar.boundingBox.size.width, opponentResourceBar.boundingBox.size.height+heightTouchBuffer);
-                CGRect playerBox = CGRectMake(playerResourceBar.boundingBox.origin.x, playerResourceBar.boundingBox.origin.y, playerResourceBar.boundingBox.size.width, playerResourceBar.boundingBox.size.height+heightTouchBuffer);
+                /*CGRect playerBox = CGRectMake(playerResourceBar.boundingBox.origin.x, playerResourceBar.boundingBox.origin.y, playerResourceBar.boundingBox.size.width, playerResourceBar.boundingBox.size.height+heightTouchBuffer);
                 if (location.y > 250) {
                     [opponentResourceBar setColor:ccc3(150, 150, 150)];
                 }
                 else if (CGRectContainsPoint(playerBox, location)) {
                     [playerResourceBar setColor:ccc3(150, 150, 150)];
-                }
+                }*/
             }
         }
     }
@@ -397,7 +377,7 @@ BOOL opponentReadyToPlay;
                         if ([pickedCard hasTargetType:@"Global"]) {
                             [self playCard:pickedCard forPlayer:pickedCard.owner onTarget:nil];
                         }
-                        if ([pickedCard hasTargetType:@"Fighters"]) {
+                        if ([pickedCard hasTargetType:@"Property"] || [pickedCard hasTargetType:@"Money"]) {
                             Card *target = [self getBoardCardAtLocation:location];
                             if (target != nil) {
                                 if ([target canBeTargetOfAbilityFromCard:pickedCard])
@@ -405,6 +385,8 @@ BOOL opponentReadyToPlay;
                                 else
                                     dragBack = YES;
                             }
+                            else
+                                dragBack = YES;
                         }
                         else {
                             dragBack = YES;
@@ -412,14 +394,14 @@ BOOL opponentReadyToPlay;
                         if ([pickedCard hasTargetType:@"Players"]) {
                             int heightTouchBuffer = 30;
                             //CGRect opponentBox = CGRectMake(opponentResourceBar.boundingBox.origin.x, opponentResourceBar.boundingBox.origin.y-heightTouchBuffer, opponentResourceBar.boundingBox.size.width, opponentResourceBar.boundingBox.size.height+heightTouchBuffer);
-                            CGRect playerBox = CGRectMake(playerResourceBar.boundingBox.origin.x, playerResourceBar.boundingBox.origin.y, playerResourceBar.boundingBox.size.width, playerResourceBar.boundingBox.size.height+heightTouchBuffer);
+                            /*CGRect playerBox = CGRectMake(playerResourceBar.boundingBox.origin.x, playerResourceBar.boundingBox.origin.y, playerResourceBar.boundingBox.size.width, playerResourceBar.boundingBox.size.height+heightTouchBuffer);
                             if (location.y > 250) {
                                 [self playCard:pickedCard forPlayer:localPlayer onTarget:opponentPlayer];
                                 NSLog(@"Play card on opponent");
                             }
                             else if (CGRectContainsPoint(playerBox, location)) {
                                 [self playCard:pickedCard forPlayer:localPlayer onTarget:localPlayer];
-                            }
+                            }*/
                             
                         }
                     }
@@ -448,9 +430,6 @@ BOOL opponentReadyToPlay;
             [bigCard runActionOnChildren:[CCFadeTo actionWithDuration:0.2 opacity:255]];
         }
     }
-    
-    [playerResourceBar setColor:ccc3(255, 255, 255)];
-    [opponentResourceBar setColor:ccc3(255, 255, 255)];
     
     dragging = NO;
 }
@@ -482,7 +461,7 @@ BOOL opponentReadyToPlay;
 - (void)dealFirstHand:(Player *)player {
     id delay = [CCDelayTime actionWithDuration:1.0];
     id dealHand = [CCCallFuncND actionWithTarget:self selector:@selector(cocosDealHandForPlayer:data:) data:localPlayer];
-    id dealOpponentHand = [CCCallFuncND actionWithTarget:self selector:@selector(cocosDealHandForPlayer:data:) data:opponentPlayer];
+    id dealOpponentHand = [CCCallFuncND actionWithTarget:self selector:@selector(cocosDealHandForPlayer:data:) data:topPlayer];
     id dealLeftPlayerHand = [CCCallFuncND actionWithTarget:self selector:@selector(cocosDealHandForPlayer:data:) data:leftPlayer];
     id dealRightPlayerHand = [CCCallFuncND actionWithTarget:self selector:@selector(cocosDealHandForPlayer:data:) data:rightPlayer];
     if (player == nil) {
@@ -523,12 +502,13 @@ BOOL opponentReadyToPlay;
         [self runAction:[CCSequence actions:[CCDelayTime actionWithDuration:2.0],[CCCallFuncND actionWithTarget:self selector:@selector(cocosShowTutorialWithName:data:) data:@"First Round"], nil]];
 }
 - (void)endPhase {
-    [self drawCardForPlayer:localPlayer];
-    [self drawCardForPlayer:localPlayer];
-    /*
-    [self stopFlashingEndTurn];
+    //[self drawCardForPlayer:localPlayer];
+    //[self drawCardForPlayer:localPlayer];
+    ///[self stopFlashingEndTurn];
+    
     switch (gamePhase) {
         case PLAYER_TURN:
+            opponentPlayer = leftPlayer;
             [self setGamePhase:OPPONENT_TURN];
             [self hideBigCard];
             [self opponentTurn];
@@ -545,27 +525,37 @@ BOOL opponentReadyToPlay;
             break;
         
         case OPPONENT_TURN:
-            [self setGamePhase:PLAYER_TURN];
-            [self beginPlayerTurn];
+            if (opponentPlayer == leftPlayer) {
+                opponentPlayer = topPlayer;
+                [self hideBigCard];
+                [self opponentTurn];
+            }
+            else if (opponentPlayer == topPlayer) {
+                opponentPlayer = rightPlayer;
+                [self hideBigCard];
+                [self opponentTurn];
+            }
+            else {
+                [self setGamePhase:PLAYER_TURN];
+                [self beginPlayerTurn];
+            }
             break;
             
         default:
             break;
     }
-    */
 }
 - (void)doUpkeepPhase:(Player *)player {
     NSArray *sideBoard;
     NSArray *board;
     
-    player.resourcePlayed = NO;
+    player.cardsPlayedThisTurn = 0;
     
     if (player == localPlayer) {
         if (opponentIsHuman)
             [self showBlackBarWithText:@"Your Turn!"];
-        sideBoard = playerSideBoard;
-        board = playerBoard;
-        for (Card *card in opponentBoard) {
+        board = localPlayer.board;
+        for (Card *card in opponentPlayer.board) {
             card.justPlayed = NO;
             [self setCardToProperBrightness:card withDelay:YES];
         }
@@ -577,9 +567,8 @@ BOOL opponentReadyToPlay;
         }
     }
     else if (player == opponentPlayer) {
-        sideBoard = opponentSideBoard;
-        board = opponentBoard;
-        for (Card *card in playerBoard) {
+        board = opponentPlayer.board;
+        for (Card *card in localPlayer.board) {
             card.justPlayed = NO;
             [self setCardToProperBrightness:card withDelay:YES];
         }
@@ -588,12 +577,6 @@ BOOL opponentReadyToPlay;
     }
     
     ResourcePool *pool = [[ResourcePool alloc] init];
-    for (Card *card in sideBoard) {
-        card.justPlayed = NO;
-        for (Resource *generatedResource in card.generatedResources) {
-            [pool addResource:generatedResource];
-        }
-    }
     for (Card *card in board) {
         for (Resource *generatedResource in card.generatedResources) {
             [pool addResource:generatedResource];
@@ -631,13 +614,10 @@ BOOL opponentReadyToPlay;
     }
     [pool release];
     
-    // DRAW A CARD
-    if (![self drawCardForPlayer:player]) {
-        if (player == localPlayer)
-            [self finishGameWithCondition:@"Defeat:OutOfCards"];
-        else
-            [self finishGameWithCondition:@"Victory:OutOfCards"];
-    }
+    // DRAW 2 CARDS
+    NSLog(@"Drawing cards for player");
+    [self drawCardForPlayer:player];
+    [self drawCardForPlayer:player];
 }
 - (void)beginPlayerTurn {
     // GIVE PLAYER RESOURCES AT BEGINNING OF TURN
@@ -671,10 +651,10 @@ BOOL opponentReadyToPlay;
     }
     
     if (phase == PLAYER_TURN || phase == OPPONENT_TURN) {
-        for (Card *card in opponentBoard) {
+        for (Card *card in opponentPlayer.board) {
             card.attacking = NO;
         }
-        for (Card *card in playerBoard) {
+        for (Card *card in localPlayer.board) {
             card.attacking = NO;
         }
     }
@@ -682,22 +662,20 @@ BOOL opponentReadyToPlay;
 - (BOOL)checkIfGameIsFinished {
     id delay = [CCDelayTime actionWithDuration:1.0];
     id smallDelay = [CCDelayTime actionWithDuration:0.25];
-    if (localPlayer.hp <= 0) {
+    /*if (localPlayer.hp <= 0) {
         [self freezeGameState];
         id finishGame = [CCCallFuncND actionWithTarget:self selector:@selector(cocosFinishGameWithCondition:data:) data:@"Defeat"];
         id destroyCards = [self destroyAllCardsForPlayer:localPlayer];
-        id destroyResources = [CCCallFuncND actionWithTarget:self selector:@selector(cocosDestroyResourcesForPlayer:data:) data:localPlayer];
-        [self runAction:[CCSequence actions:destroyCards,smallDelay,destroyResources,delay,finishGame, nil]];
+        [self runAction:[CCSequence actions:destroyCards,smallDelay,delay,finishGame, nil]];
         return YES;
     }
     else if (opponentPlayer.hp <= 0) {
         [self freezeGameState];
         id finishGame = [CCCallFuncND actionWithTarget:self selector:@selector(cocosFinishGameWithCondition:data:) data:@"Victory"];
         id destroyCards = [self destroyAllCardsForPlayer:opponentPlayer];
-        id destroyResources = [CCCallFuncND actionWithTarget:self selector:@selector(cocosDestroyResourcesForPlayer:data:) data:opponentPlayer];
-        [self runAction:[CCSequence actions:destroyCards,smallDelay,destroyResources,delay,finishGame, nil]];
+        [self runAction:[CCSequence actions:destroyCards,smallDelay,delay,finishGame, nil]];
         return YES;
-    }
+    }*/
     return NO;
 }
 - (void)freezeGameState {
@@ -750,13 +728,6 @@ BOOL opponentReadyToPlay;
     targetMode = YES;
     playerActiveCard = pickedCard;
     
-    if (attackButton != nil)
-        [self hideButton:@"AttackButton"];
-    if (defendButton != nil)
-        [self hideButton:@"DefendButton"];
-    if (abilityButton != nil)
-        [self hideButton:@"AbilityButton"];
-    
     [self hideEndPhase];
     [self showButton:@"Cancel"];
     [self showButton:@"SelectATarget"];
@@ -802,7 +773,7 @@ BOOL opponentReadyToPlay;
 // OPPONENT AI FUNCTIONS
 - (void)opponentDefendAttackingCard:(Card *)card {
     if (!opponentIsHuman) {
-        Card *defendingCard = [opponentPlayer.ai chooseDefenderFromBoard:opponentBoard againstCard:card];
+        Card *defendingCard = [opponentPlayer.ai chooseDefenderFromBoard:opponentPlayer.board againstCard:card];
         if (defendingCard != nil) {
             [self resolveBattleBetweenCard:card andCard:defendingCard];
         }
@@ -831,14 +802,14 @@ BOOL opponentReadyToPlay;
 }
 - (void)opponentPlayResource {
     Card *opponentCard;
-    opponentCard = [opponentPlayer.ai pickResourceFromHand:opponentHand];
+    opponentCard = [opponentPlayer.ai pickResourceFromHand:opponentPlayer.hand];
     if (opponentCard != nil)
         [self playCard:opponentCard forPlayer:opponentPlayer onTarget:nil];
 }
 - (void)opponentPlayCard {
     Card *opponentCard;
-    opponentCard = [opponentPlayer.ai pickCardFromHand:opponentHand];
-    if (opponentCard != nil) {
+    opponentCard = [opponentPlayer.ai pickCardFromHand:opponentPlayer.hand];
+    if (opponentCard != nil && opponentPlayer.cardsPlayedThisTurn < 3) {
         id target = [opponentPlayer.ai chooseTargetForCard:opponentCard];
         [self playCard:opponentCard forPlayer:opponentPlayer onTarget:target];
         id delay = [CCDelayTime actionWithDuration:OPPONENT_TURN_DELAY/2];
@@ -853,7 +824,7 @@ BOOL opponentReadyToPlay;
     }
 }
 - (BOOL)opponentAttack {
-    Card *attackingCard = [opponentPlayer.ai chooseAttackerFromBoard:opponentBoard againstBoard:playerBoard];
+    Card *attackingCard = nil;//[opponentPlayer.ai chooseAttackerFromBoard:opponentPlayer.board againstBoard:localPlayer.board];
     
     if (attackingCard != nil) {
         [self attackWithCard:attackingCard forPlayer:opponentPlayer];
@@ -898,6 +869,7 @@ BOOL opponentReadyToPlay;
 - (void)playCard:(Card *)card forPlayer:(Player*)player onTarget:(id)target {
     Card *targetCard = nil;
     Player *targetPlayer = nil;
+    player.cardsPlayedThisTurn++;
     if ([target isKindOfClass:[Card class]])
         targetCard = target;
     else if (target != nil)
@@ -1023,107 +995,98 @@ BOOL opponentReadyToPlay;
         }
     }
     else {
-        if (![card.type isEqualToString:@"Enhancement"]) {
-            if (![card hasAbility:@"Ambush"]) {
-                if (costFlag)
-                    card.justPlayed = YES;
-                
-                // SET TO PROPER BRIGHTNESS IF COMING FROM THE PLAYER'S HAND
-                if ([player.hand containsObject:card]) {
-                    [self setCardToProperBrightness:card withDelay:YES];
-                }
-            }
-        }
         if ([player.hand containsObject:card])
             [self playSoundForCard:card forAction:@"Played"];
     }
     
-    if (player == localPlayer) {
-        if ([card.type isEqualToString:@"Property"] ||[card.type isEqualToString:@"Money"]) {
-            if ([card.type isEqualToString:@"Property"]) {
-                BOOL shouldStack = NO;
-                for (Card *boardCard in player.board) {
-                    if ([boardCard.type isEqualToString:@"Property"] && [boardCard.subType isEqualToString:card.subType]) {
-                        [self reorderChild:card.thumbSprite z:boardCard.thumbSprite.zOrder-[boardCard.attachedCards count]];
-                        card.host = boardCard;
-                        [boardCard.attachedCards addObject:card];
-                        shouldStack = YES;
-                    }
+    if (player != localPlayer) {
+        [card.thumbSprite setTexture:card.sprite.texture];
+    }
+    
+    if ([card.type isEqualToString:@"Property"] ||[card.type isEqualToString:@"Money"]) {
+        if ([card.type isEqualToString:@"Property"]) {
+            BOOL shouldStack = NO;
+            for (Card *boardCard in player.board) {
+                if ([boardCard.type isEqualToString:@"Property"] && [boardCard.subType isEqualToString:card.subType]) {
+                    [self reorderChild:card.thumbSprite z:boardCard.thumbSprite.zOrder-[boardCard.attachedCards count]];
+                    card.host = boardCard;
+                    [boardCard.attachedCards addObject:card];
+                    shouldStack = YES;
                 }
-                if (shouldStack == NO)
-                    [playerBoard addObject:card];
             }
-            else {
-                BOOL shouldStack = NO;
-                for (Card *boardCard in player.board) {
-                    if ([boardCard.type isEqualToString:@"Money"]) {
-                        [self reorderChild:card.thumbSprite z:boardCard.thumbSprite.zOrder-[boardCard.attachedCards count]];
-                        card.host = boardCard;
-                        [boardCard.attachedCards addObject:card];
-                        shouldStack = YES;
-                    }
+            if (shouldStack == NO)
+                [player.board addObject:card];
+        }
+        else {
+            BOOL shouldStack = NO;
+            for (Card *boardCard in player.board) {
+                if ([boardCard.type isEqualToString:@"Money"]) {
+                    [self reorderChild:card.thumbSprite z:boardCard.thumbSprite.zOrder-[boardCard.attachedCards count]];
+                    card.host = boardCard;
+                    [boardCard.attachedCards addObject:card];
+                    shouldStack = YES;
                 }
-                if (shouldStack == NO)
-                    [playerBoard insertObject:card atIndex:0];
             }
-            
-            if (tutorial && gamePhase == PLAYER_TURN && [player.board count] == 1 && [player.graveyard count] == 0) {
-                id delay = [CCDelayTime actionWithDuration:2.0];
-                id showPopUp = [CCCallFuncND actionWithTarget:self selector:@selector(cocosShowTutorialWithName:data:) data:@"End Phase"];
-                [playButton runAction:[CCSequence actions:delay, showPopUp, nil]];
+            if (shouldStack == NO)
+                [player.board insertObject:card atIndex:0];
+        }
+        
+        if (tutorial && gamePhase == PLAYER_TURN && [player.board count] == 1 && [player.graveyard count] == 0) {
+            id delay = [CCDelayTime actionWithDuration:2.0];
+            id showPopUp = [CCCallFuncND actionWithTarget:self selector:@selector(cocosShowTutorialWithName:data:) data:@"End Phase"];
+            [playButton runAction:[CCSequence actions:delay, showPopUp, nil]];
+        }
+    }
+    else if ([card.type isEqualToString:@"Enhancement"]) {
+        [self reorderChild:card.thumbSprite z:targetCard.thumbSprite.zOrder-1];
+        card.host = targetCard;
+        [targetCard.attachedCards addObject:card];
+        //[self floatTextOverCard:targetCard withText:card.name];
+        /*if (card.owner == targetCard.owner)
+            [self flashCard:targetCard withColor:ccc3(0, 200, 0)];
+        else
+            [self flashCard:targetCard withColor:ccc3(200, 0, 0)];*/
+    }
+    else if ([card.type isEqualToString:@"Action"]) {
+        [card retain];
+        [player.hand removeObject:card];
+        
+        if ([card hasTargetType:@"Global"]) {
+            for (NSString *ability in card.passiveAbilities) {
+                [self procAbility:ability fromCard:card onCard:nil];
             }
         }
-        else if ([card.type isEqualToString:@"Enhancement"]) {
-            [self reorderChild:card.thumbSprite z:targetCard.thumbSprite.zOrder-1];
-            card.host = targetCard;
-            [targetCard.attachedCards addObject:card];
-            //[self floatTextOverCard:targetCard withText:card.name];
+        if (targetCard) {
             if (card.owner == targetCard.owner)
                 [self flashCard:targetCard withColor:ccc3(0, 200, 0)];
+            else if ([card hasAbility:@"Bribe"])
+                ;// Do nothing
             else
                 [self flashCard:targetCard withColor:ccc3(200, 0, 0)];
-        }
-        else if ([card.type isEqualToString:@"Action"]) {
-            [card retain];
-            [playerHand removeObject:card];
             
-            if ([card hasTargetType:@"Global"]) {
-                for (NSString *ability in card.passiveAbilities) {
-                    [self procAbility:ability fromCard:card onCard:nil];
-                }
-            }
-            if (targetCard) {
-                if (card.owner == targetCard.owner)
-                    [self flashCard:targetCard withColor:ccc3(0, 200, 0)];
-                else if ([card hasAbility:@"Bribe"])
-                    ;// Do nothing
-                else
-                    [self flashCard:targetCard withColor:ccc3(200, 0, 0)];
-                
-                for (NSString *ability in card.passiveAbilities) {
-                    [self procAbility:ability fromCard:card onCard:targetCard];
-                }
-            }
-            if (targetPlayer) {
-                for (NSString *ability in card.passiveAbilities) {
-                    [self procAbility:ability fromCard:card onPlayer:targetPlayer];
-                }
-            }
-            
-            [self destroyCard:card];
-        }
-        else if ([card.type isEqualToString:@"Resource"]) {
-            [playerSideBoard addObject:card];
-            for (Resource *generatedResource in card.generatedResources) {
-                [self addResource:generatedResource toPlayer:player];
+            for (NSString *ability in card.passiveAbilities) {
+                [self procAbility:ability fromCard:card onCard:targetCard];
             }
         }
-        [playerHand removeObject:card];
+        if (targetPlayer) {
+            for (NSString *ability in card.passiveAbilities) {
+                [self procAbility:ability fromCard:card onPlayer:targetPlayer];
+            }
+        }
+        
+        [self destroyCard:card];
     }
-    else if (player == opponentPlayer) {
-        [card.thumbSprite setTexture:[[CCTextureCache sharedTextureCache] addImage:card.getThumbPath]];
+    else if ([card.type isEqualToString:@"Resource"]) {
+        [player.sideBoard addObject:card];
+        for (Resource *generatedResource in card.generatedResources) {
+            [self addResource:generatedResource toPlayer:player];
+        }
+    }
+    [player.hand removeObject:card];
+    /*else if (player == opponentPlayer) {
+        [card.thumbSprite setTexture:card.sprite.texture];
         if ([card.type isEqualToString:@"Fighter"]) {
-            [opponentBoard addObject:card];
+            [opponentPlayer.board addObject:card];
         }
         else if ([card.type isEqualToString:@"Enhancement"]) {
             [self reorderChild:card.thumbSprite z:targetCard.thumbSprite.zOrder-1];
@@ -1173,14 +1136,14 @@ BOOL opponentReadyToPlay;
             }
         }        
         [opponentHand removeObject:card];
-    }
+    }*/
     
     [self procCardPlayedAbilities:card];
     [self updateResourcePanel];
 }
 - (BOOL)cardIsInPlay:(Card *)card {
     BOOL cardFound = NO;
-    for (Card *loopCard in playerBoard) {
+    for (Card *loopCard in localPlayer.board) {
         if (loopCard == card)
             cardFound = YES;
         for (Card *enhancementCard in loopCard.attachedCards) {
@@ -1189,11 +1152,7 @@ BOOL opponentReadyToPlay;
             }
         }
     }
-    for (Card *loopCard in playerSideBoard) {
-        if (loopCard == card)
-            cardFound = YES;
-    }
-    for (Card *loopCard in opponentBoard) {
+    for (Card *loopCard in opponentPlayer.board) {
         if (loopCard == card)
             cardFound = YES;
         for (Card *enhancementCard in loopCard.attachedCards) {
@@ -1201,21 +1160,27 @@ BOOL opponentReadyToPlay;
                 cardFound = YES;
             }
         }
-    }
-    for (Card *loopCard in opponentSideBoard) {
-        if (loopCard == card)
-            cardFound = YES;
     }
     return cardFound;
 }
 - (Card*)getBoardCardAtLocation:(CGPoint)location {
     Card *selectedCard = nil;
-    for (Card *card in playerBoard) {
+    for (Card *card in localPlayer.board) {
         if (CGRectContainsPoint(card.thumbSprite.boundingBox, location)) {
             selectedCard = card;
         }
     }
-    for (Card *card in opponentBoard) {
+    for (Card *card in leftPlayer.board) {
+        if (CGRectContainsPoint(card.thumbSprite.boundingBox, location)) {
+            selectedCard = card;
+        }
+    }
+    for (Card *card in topPlayer.board) {
+        if (CGRectContainsPoint(card.thumbSprite.boundingBox, location)) {
+            selectedCard = card;
+        }
+    }
+    for (Card *card in rightPlayer.board) {
         if (CGRectContainsPoint(card.thumbSprite.boundingBox, location)) {
             selectedCard = card;
         }
@@ -1224,9 +1189,9 @@ BOOL opponentReadyToPlay;
 }
 - (void)destroyCard:(Card *)card {
     if (!card.dying) {
-        for (Card *loopCard in playerHand)
+        for (Card *loopCard in localPlayer.hand)
             [self procUpdateOnCardStats:loopCard];
-        for (Card *loopCard in opponentHand)
+        for (Card *loopCard in opponentPlayer.hand)
             [self procUpdateOnCardStats:loopCard];
         
         [card.thumbSprite stopAllActions];
@@ -1402,38 +1367,6 @@ BOOL opponentReadyToPlay;
     return [CCSequence actionsWithArray:actions];
     [actions autorelease];
 }
-- (void)destroyResourceBarForPlayer:(Player*)player {
-    CCSprite *resourceBar;
-    CCSprite *healthLabel;
-    CCSprite *healthSprite;
-    id fade = [CCFadeOut actionWithDuration:0.4];
-    id tintToRed = [CCTintTo actionWithDuration:0.4 red:150 green:0 blue:0];
-    id playDeathSound = [CCCallFuncND actionWithTarget:self selector:@selector(cocosPlaySoundWithName:data:) data:@"death.wav"];
-    id move;
-    
-    if (player == localPlayer) {
-        healthLabel = playerHPLabel;
-        healthSprite = playerHPSprite;
-        resourceBar = playerResourceBar;
-        move = [CCMoveBy actionWithDuration:0.4 position:[self makeScaledPointx:0 y:-20]];
-    }
-    else {
-        healthLabel = opponentHPLabel;
-        healthSprite = opponentHPSprite;
-        resourceBar = opponentResourceBar;
-        move = [CCMoveBy actionWithDuration:0.4 position:[self makeScaledPointx:0 y:20]];
-    }
-
-    id spawn = [CCSpawn actions:[fade copy],[tintToRed copy],[playDeathSound copy],[move copy], nil];
-    for (Resource *resource in player.resourcePool.resources) {
-        [resource.label runAction:[spawn copy]];
-        [resource.sprite runAction:[spawn copy]];
-    }
-    
-    [healthLabel runAction:[spawn copy]];
-    [healthSprite runAction:[spawn copy]];    
-    [resourceBar runAction:[spawn copy]];
-}
 - (Card*)createCardWithSprites:(NSString*)cardName {
     Card *card = [factory spawnCard:cardName];
     
@@ -1448,13 +1381,13 @@ BOOL opponentReadyToPlay;
     NSLog(@"Revealing hand");
     opponentHandRevealed = YES;
     
-    for (Card *card in opponentHand)
+    for (Card *card in opponentPlayer.hand)
         [card.thumbSprite setTexture:[[CCTextureCache sharedTextureCache] addImage:card.getThumbPath]];
 }
 - (void)hideOpponentHand {
     opponentHandRevealed = NO;
     
-    for (Card *card in opponentHand)
+    for (Card *card in opponentPlayer.hand)
         [card.thumbSprite setTexture:[[CCTextureCache sharedTextureCache] addImage:@"cardback.png"]];
 }
 - (void)spawnCardWithName:(NSString*)name forPlayer:(Player*)player used:(BOOL)used{
@@ -1629,14 +1562,40 @@ BOOL opponentReadyToPlay;
         for (Card *card in targetPlayer.board) {
         }
     }
-    if ([ability isEqualToString:@"Bribe"]) {
+    if ([ability isEqualToString:@"StealProperties"]) {
+        ccColor3B flashColor;
+        if (originCard.owner == localPlayer)
+            flashColor = ccc3(150, 150, 150);
+        else
+            flashColor = ccc3(150, 150, 150);
+        
         Player *originOwner = originCard.owner;
         if (targetCard.owner != originCard.owner) {
-            [targetCard.thumbSprite runAction:[CCRotateBy actionWithDuration:0.2 angle:180]];
+            [self flashCard:targetCard withColor:flashColor];
+            [targetCard.thumbSprite runAction:[CCRotateTo actionWithDuration:0.2 angle:[self getAngleForPlayer:originOwner]]];
             for (Card *attachmentCard in targetCard.attachedCards) {
-                [attachmentCard.thumbSprite runAction:[CCRotateBy actionWithDuration:0.2 angle:180]];
+                [self flashCard:attachmentCard withColor:flashColor];
+                [attachmentCard.thumbSprite runAction:[CCRotateTo actionWithDuration:0.2 angle:[self getAngleForPlayer:originOwner]]];
             }
-            [originCard.owner.board insertObject:targetCard atIndex:[originCard.owner.board count]];
+            
+            // CHECK IF PLAYER HAS PROPERTY OF SAME COLOUR ALREADY
+            BOOL sameColourFound = NO;
+            for (Card *card in originOwner.board) {
+                if ([card.subType isEqualToString:targetCard.subType]) {
+                    // ATTACH CARDS TO EXISTING CARD
+                    [card.attachedCards addObject:targetCard];
+                    targetCard.host = card;
+                    for (Card *attachmentCard in targetCard.attachedCards) {
+                        [card.attachedCards addObject:attachmentCard];
+                        attachmentCard.host = card;
+                    }
+                    //[card.attachedCards removeAllObjects];
+                    sameColourFound = YES;
+                }
+            }
+            if (sameColourFound == NO)
+                [originCard.owner.board insertObject:targetCard atIndex:[originCard.owner.board count]];                
+            
             for (Card *attachmentCard in originCard.attachedCards) {
                 [self animateCardToProperLocation:attachmentCard forPlayer:attachmentCard.owner];
             }
@@ -1736,10 +1695,9 @@ BOOL opponentReadyToPlay;
 
 // ANIMATION FUNCTIONS
 - (void)dealHandForPlayer:(Player *)player {
-    [self startGame];
-    
     // GET FIRST CARDS
     for (int i = 0; i < 5; i++) {
+        //[self drawCardForPlayer:player];
         [self addCardToHand:[deck drawCard] forPlayer:player];
     }
     
@@ -1747,12 +1705,12 @@ BOOL opponentReadyToPlay;
     int x = CARD_STARTX;
     if (player == localPlayer) {
         id delay;
-        for (int i = 0; i < [playerHand count]; i++) {
-            card = [playerHand objectAtIndex:i];
+        for (int i = 0; i < [player.hand count]; i++) {
+            card = [player.hand objectAtIndex:i];
             card.sprite = [CCSprite spriteWithFile:card.imagePath];
             card.thumbSprite = [CCSprite spriteWithFile:card.imagePath];
             card.thumbSprite.position = [self makeScaledPointx:x y:CARD_PLAYERY - 80];
-            card.thumbSprite.scale = 0.5;
+            card.thumbSprite.scale = HAND_SCALE;
             [self addChild:card.thumbSprite];
             delay = [CCDelayTime actionWithDuration:(i * DEAL_SPEED)];
             id move = [CCMoveTo actionWithDuration:DEAL_SPEED position:[self makeScaledPointx:x y:CARD_PLAYERY]];
@@ -1787,7 +1745,7 @@ BOOL opponentReadyToPlay;
             card.sprite = [CCSprite spriteWithFile:card.imagePath];
             [card.sprite retain];
             card.thumbSprite = [CCSprite spriteWithFile:@"cardback.png"];
-            card.thumbSprite.scale = 0.5;
+            card.thumbSprite.scale = HAND_SCALE;
             [card.thumbSprite retain];
             id delay = [CCDelayTime actionWithDuration:(i * DEAL_SPEED)];
             id move;
@@ -1801,13 +1759,13 @@ BOOL opponentReadyToPlay;
             else if (player == leftPlayer) {
                 card.thumbSprite.rotation = 90;
                 card.thumbSprite.position = [self makeScaledPointx:CARD_PLAYERY-80 y:NAMETAG_SIDE_Y-x+40];
-                move = [CCMoveTo actionWithDuration:DEAL_SPEED position:[self makeScaledPointx:CARD_PLAYERY y:NAMETAG_SIDE_Y-x+20]];
+                move = [CCMoveTo actionWithDuration:DEAL_SPEED position:[self makeScaledPointx:CARD_PLAYERY y:NAMETAG_SIDE_Y-x]];
                 x = x + CARD_SPACING;
             }
             else if (player == rightPlayer) {
                 card.thumbSprite.rotation = 270;
                 card.thumbSprite.position = [self makeScaledPointx:480+80 y:320-NAMETAG_SIDE_Y-30+x];
-                move = [CCMoveTo actionWithDuration:DEAL_SPEED position:[self makeScaledPointx:480-CARD_PLAYERY y:320-NAMETAG_SIDE_Y-20+x]];
+                move = [CCMoveTo actionWithDuration:DEAL_SPEED position:[self makeScaledPointx:480-CARD_PLAYERY y:320-NAMETAG_SIDE_Y+x]];
                 x = x + CARD_SPACING;
             }
             [self addChild:card.thumbSprite];
@@ -1818,9 +1776,9 @@ BOOL opponentReadyToPlay;
 - (void)redealHandForPlayer:(Player*)player {
     Card* card;
     if (player == localPlayer) {
-        for (int i = 0; i < [playerHand count]; i++) {
-            card = [playerHand objectAtIndex:i];
-            id delay = [CCDelayTime actionWithDuration:(([playerHand count]-i) * DEAL_SPEED/2)];
+        for (int i = 0; i < [player.hand count]; i++) {
+            card = [player.hand objectAtIndex:i];
+            id delay = [CCDelayTime actionWithDuration:(([player.hand count]-i) * DEAL_SPEED/2)];
             id move = [CCMoveBy actionWithDuration:DEAL_SPEED/2 position:[self makeScaledPointx:0 y:-40]];
             id playSound = [CCCallFuncND actionWithTarget:self selector:@selector(cocosPlaySoundWithName:data:) data:@"card.wav"];
             id removeSprite = [CCCallFuncN actionWithTarget:self selector:@selector(cocosRemoveSprite:)];
@@ -1830,16 +1788,16 @@ BOOL opponentReadyToPlay;
         [player.deck shuffle];
         [playButton runAction:[CCMoveBy actionWithDuration:0.2 position:[self makeScaledPointx:0 y:+20]]];
         [redealButton runAction:[CCMoveBy actionWithDuration:0.2 position:[self makeScaledPointx:0 y:+20]]];
-        id delay = [CCDelayTime actionWithDuration:([playerHand count] * DEAL_SPEED)];
+        id delay = [CCDelayTime actionWithDuration:([player.hand count] * DEAL_SPEED)];
         id dealHand = [CCCallFuncND actionWithTarget:self selector:@selector(cocosDealHandForPlayer:data:) data:localPlayer];
         [self runAction:[CCSequence actions:delay,dealHand, nil]];
-        [playerHand removeAllObjects];
+        [player.hand removeAllObjects];
         redealCount++;
     }
     else {
-        for (int i = 0; i < [opponentHand count]; i++) {
-            card = [opponentHand objectAtIndex:i];
-            id delay = [CCDelayTime actionWithDuration:(([opponentHand count]-i) * DEAL_SPEED/2)];
+        for (int i = 0; i < [player.hand count]; i++) {
+            card = [player.hand objectAtIndex:i];
+            id delay = [CCDelayTime actionWithDuration:(([player.hand count]-i) * DEAL_SPEED/2)];
             id move = [CCMoveBy actionWithDuration:DEAL_SPEED/2 position:[self makeScaledPointx:0 y:+40]];
             id playSound = [CCCallFuncND actionWithTarget:self selector:@selector(cocosPlaySoundWithName:data:) data:@"card.wav"];
             id removeSprite = [CCCallFuncN actionWithTarget:self selector:@selector(cocosRemoveSprite:)];
@@ -1847,42 +1805,69 @@ BOOL opponentReadyToPlay;
             [opponentPlayer.deck addCard:card];
         }
         [opponentPlayer.deck shuffle];
-        id delay = [CCDelayTime actionWithDuration:([opponentHand count] * DEAL_SPEED)];
+        id delay = [CCDelayTime actionWithDuration:([player.hand count] * DEAL_SPEED)];
         id dealHand = [CCCallFuncND actionWithTarget:self selector:@selector(cocosDealHandForPlayer:data:) data:opponentPlayer];
         [self runAction:[CCSequence actions:delay,dealHand, nil]];
-        [opponentHand removeAllObjects];
+        [player.hand removeAllObjects];
     }
 }
 - (BOOL)drawCardForPlayer:(Player*)player {
+    int x;
+    if (player == localPlayer)
+       x = CARD_STARTX + [player.hand count]*CARD_SPACING;
+    else if (player == topPlayer)
+        x = 480 - CARD_STARTX - [player.hand count]*CARD_SPACING;
+    else if (player == leftPlayer)
+        x = 320 - NAMETAG_SIDE_Y + [player.hand count]*CARD_SPACING;
+    else if (player == rightPlayer)
+        x = 320 - NAMETAG_SIDE_Y + [player.hand count]*CARD_SPACING;
+    
+    Card *card = [deck drawCard];
+    if (card == nil)
+        return NO;
+    [self addCardToHand:card forPlayer:player];
+    
+    NSLog(@"Drawing card");
+    card.sprite = [CCSprite spriteWithFile:card.imagePath];    
     if (player == localPlayer) {
-        int x = CARD_STARTX + [playerHand count]*CARD_SPACING;
-        Card *card = [deck drawCard];
-        if (card == nil)
-            return NO;
-        [self addCardToHand:card forPlayer:player];
-        card.sprite = [CCSprite spriteWithFile:card.imagePath];
         card.thumbSprite = [CCSprite spriteWithFile:card.imagePath];
-        card.thumbSprite.scale = 0.5;
         card.thumbSprite.position = [self makeScaledPointx:x y:CARD_PLAYERY - 80];
         [self addChild:card.thumbSprite z:zOrder];
         id move = [CCMoveTo actionWithDuration:DEAL_SPEED position:[self makeScaledPointx:x y:CARD_PLAYERY]];
         id playSound = [CCCallFuncND actionWithTarget:self selector:@selector(cocosPlaySoundWithName:data:) data:@"card.wav"];
         [card.thumbSprite runAction:[CCSequence actions:playSound, move, nil]];
     }
-    else {
-        int x = CARD_STARTX + [opponentHand count]*CARD_SPACING;
-        Card *card = [player.deck drawCard];
-        if (card == nil)
-            return NO;
-        [self addCardToHand:card forPlayer:player];
+    else if (player == leftPlayer) {
+        NSLog(@"Drawing card for opponent");
+        card.thumbSprite = [CCSprite spriteWithFile:@"cardback.png"];
+        card.thumbSprite.position = [self makeScaledPointx:CARD_PLAYERY-80 y:NAMETAG_SIDE_Y-x+20];
+        card.thumbSprite.rotation = 90;
+        [self addChild:card.thumbSprite z:zOrder];
+        id move = [CCMoveTo actionWithDuration:DEAL_SPEED position:[self makeScaledPointx:CARD_PLAYERY y:NAMETAG_SIDE_Y-x]];
+        id playSound = [CCCallFuncND actionWithTarget:self selector:@selector(cocosPlaySoundWithName:data:) data:@"card.wav"];
+        [card.thumbSprite runAction:[CCSequence actions:playSound, move, nil]];
+    }
+    else if (player == rightPlayer) {
+        NSLog(@"Drawing card for opponent");
+        card.thumbSprite = [CCSprite spriteWithFile:@"cardback.png"];
+        card.thumbSprite.position = [self makeScaledPointx:480-CARD_PLAYERY+80 y:320-NAMETAG_SIDE_Y+x-20];
+        card.thumbSprite.rotation = 270;
+        [self addChild:card.thumbSprite z:zOrder];
+        id move = [CCMoveTo actionWithDuration:DEAL_SPEED position:[self makeScaledPointx:480-CARD_PLAYERY y:320-NAMETAG_SIDE_Y+x]];
+        id playSound = [CCCallFuncND actionWithTarget:self selector:@selector(cocosPlaySoundWithName:data:) data:@"card.wav"];
+        [card.thumbSprite runAction:[CCSequence actions:playSound, move, nil]];
+    }
+    else if (player == topPlayer) {
+        NSLog(@"Drawing card for opponent");
         card.thumbSprite = [CCSprite spriteWithFile:@"cardback.png"];
         card.thumbSprite.position = [self makeScaledPointx:x y:320-CARD_PLAYERY + 80];
-        card.thumbSprite.rotation = CC_RADIANS_TO_DEGREES(3.14);
+        card.thumbSprite.rotation = 180;
         [self addChild:card.thumbSprite z:zOrder];
         id move = [CCMoveTo actionWithDuration:DEAL_SPEED position:[self makeScaledPointx:x y:320-CARD_PLAYERY]];
         id playSound = [CCCallFuncND actionWithTarget:self selector:@selector(cocosPlaySoundWithName:data:) data:@"card.wav"];
         [card.thumbSprite runAction:[CCSequence actions:playSound, move, nil]];
     }
+    card.thumbSprite.scale = HAND_SCALE;
     [self reorderChild:endTurnButton z:zOrder];
     return YES;
 }
@@ -1893,7 +1878,7 @@ BOOL opponentReadyToPlay;
         int x = CARD_STARTX + [player.hand count]*CARD_SPACING;
         [self addCardToHand:card forPlayer:player];
         card.sprite = [CCSprite spriteWithFile:card.imagePath];
-        card.thumbSprite = [CCSprite spriteWithFile:[card getThumbPath]];
+        card.thumbSprite = [CCSprite spriteWithFile:card.sprite];
         card.thumbSprite.position = [self makeScaledPointx:x y:CARD_PLAYERY - 80];
         [self addChild:card.thumbSprite z:zOrder];
         id move = [CCMoveTo actionWithDuration:DEAL_SPEED position:[self makeScaledPointx:x y:CARD_PLAYERY]];
@@ -1901,7 +1886,7 @@ BOOL opponentReadyToPlay;
         [card.thumbSprite runAction:[CCSequence actions:delay, playSound, move, nil]];
     }
     else {
-        int x = CARD_STARTX + [opponentHand count]*CARD_SPACING;
+        int x = CARD_STARTX + [player.hand count]*CARD_SPACING;
         [self addCardToHand:card forPlayer:player];
         card.thumbSprite = [CCSprite spriteWithFile:@"cardback.png"];
         card.thumbSprite.position = [self makeScaledPointx:x y:320-CARD_PLAYERY + 80];
@@ -1915,68 +1900,65 @@ BOOL opponentReadyToPlay;
 }
 - (void)moveCardToFrontOfHand:(Card *)card {
     Card* foundCard = nil;
-    for (Card *loopCard in playerHand) {
+    for (Card *loopCard in localPlayer.hand) {
         if (loopCard == card) {
             foundCard = loopCard;
         }
     }
     if (foundCard != nil) {
-        int handIndex = [playerHand indexOfObject:foundCard];
-        int handCount = [playerHand count];
+        int handIndex = [localPlayer.hand indexOfObject:foundCard];
+        int handCount = [localPlayer.hand count];
         for (int i = handIndex; i < handCount-1; i++) {
-            [playerHand exchangeObjectAtIndex:i withObjectAtIndex:i+1];
+            [localPlayer.hand exchangeObjectAtIndex:i withObjectAtIndex:i+1];
         }
         [self reorderChild:foundCard.thumbSprite z:zOrder];
         zOrder++;
     }
     
-    for (int i = 0; i < ([playerHand count]-1); i++) {
-        Card *loopCard = [playerHand objectAtIndex:i];
+    for (int i = 0; i < ([localPlayer.hand count]-1); i++) {
+        Card *loopCard = [localPlayer.hand objectAtIndex:i];
         [self animateCardToProperLocation:loopCard forPlayer:localPlayer];
     }
 }
 - (void)animateAllCardsToProperLocation {
-    for (Card *card in playerHand) {
+    for (Card *card in localPlayer.hand) {
         [self animateCardToProperLocation:card forPlayer:localPlayer];
     }
-    for (Card *card in playerBoard) {
+    for (Card *card in localPlayer.board) {
         [self animateCardToProperLocation:card forPlayer:localPlayer];
     }
-    for (Card *card in playerSideBoard) {
-        [self animateCardToProperLocation:card forPlayer:localPlayer];
-    }
-    for (Card *card in opponentHand) {
+    for (Card *card in opponentPlayer.hand) {
         [self animateCardToProperLocation:card forPlayer:opponentPlayer];
     }
-    for (Card *card in opponentBoard) {
-        [self animateCardToProperLocation:card forPlayer:opponentPlayer];
-    }
-    for (Card *card in opponentSideBoard) {
+    for (Card *card in opponentPlayer.board) {
         [self animateCardToProperLocation:card forPlayer:opponentPlayer];
     }
 }
 - (void)animateCardToProperLocation:(Card *)card forPlayer:(Player*)player {
     if (gamePhase != GAME_FINISHED) {
-        NSArray *board;
-        NSArray *sideBoard;
-        NSArray *hand;
+        NSArray *board = player.board;
+        NSArray *hand = player.hand;
         int boardX;
         int boardY;
         int sideBoardY;
         int handY;
         if (player == localPlayer) {
-            board = playerBoard;
-            sideBoard = playerSideBoard;
-            hand = playerHand;
             boardY = BOARD_Y;
             boardX = BOARD_CENTER_X;
             sideBoardY = SIDEBOARD_Y;
             handY = CARD_PLAYERY;
         }
-        else {
-            board = opponentBoard;
-            sideBoard = opponentSideBoard;
-            hand = opponentHand;
+        else if (player == leftPlayer) {
+            boardY = 120;
+            boardX = 160;
+            handY = CARD_PLAYERY;
+        }
+        else if (player == rightPlayer) {
+            boardY = 480-120;
+            boardX = 160;
+            handY = 480-CARD_PLAYERY;
+        }
+        else if (player == topPlayer) {
             boardY = 320-BOARD_Y;
             boardX = 480-BOARD_CENTER_X;
             sideBoardY = 320-SIDEBOARD_Y;
@@ -2001,29 +1983,40 @@ BOOL opponentReadyToPlay;
                 for (int i = 0; i < boardCount; i++) {
                     Card *loopCard = [board objectAtIndex:i];
                     if (loopCard == card) {
-                        if (player == localPlayer)
+                        if (player == localPlayer || player == rightPlayer)
                             targetX = boardX + offset;
                         else
                             targetX = boardX - offset;
                     }
                     offset = offset + cardSpacing;
                 }
-                [card.thumbSprite runAction: [CCMoveTo actionWithDuration:0.2 position:[self makeScaledPointx:targetX y:boardY]]];
+                if (player == localPlayer || player == topPlayer)
+                    [card.thumbSprite runAction: [CCMoveTo actionWithDuration:0.2 position:[self makeScaledPointx:targetX y:boardY]]];
+                else if (player == leftPlayer || player == rightPlayer)
+                    [card.thumbSprite runAction: [CCMoveTo actionWithDuration:0.2 position:[self makeScaledPointx:boardY y:targetX]]];
+
                 // DEAL WITH ENHANCEMENT CARDS
                 int enhancementBuffer = ENHANCEMENT_SPACING;
                 for (Card *enhancementCard in card.attachedCards) {
-                    if (card.owner == localPlayer) {
+                    if (card.owner == localPlayer)
                         [enhancementCard.thumbSprite runAction: [CCMoveTo actionWithDuration:0.2 position:[self makeScaledPointx:targetX y:boardY-enhancementBuffer]]];
-                    }
-                    else {
+                    else if (card.owner == topPlayer)
                         [enhancementCard.thumbSprite runAction: [CCMoveTo actionWithDuration:0.2 position:[self makeScaledPointx:targetX y:boardY+enhancementBuffer]]];
-                    }
+                    else if (card.owner == leftPlayer)
+                        [enhancementCard.thumbSprite runAction: [CCMoveTo actionWithDuration:0.2 position:[self makeScaledPointx:boardY-enhancementBuffer y:targetX]]];
+                    else if (card.owner == rightPlayer)
+                        [enhancementCard.thumbSprite runAction: [CCMoveTo actionWithDuration:0.2 position:[self makeScaledPointx:boardY+enhancementBuffer y:targetX]]];
                     
                     if (enhancementCard.owner != card.owner) {
-                        if (card.owner == opponentPlayer)
+                        if (card.owner == topPlayer)
                             [enhancementCard.thumbSprite runAction:[CCRotateTo actionWithDuration:0.0 angle:180]];
-                        else
+                        else if (card.owner == localPlayer)
                             [enhancementCard.thumbSprite runAction:[CCRotateTo actionWithDuration:0.0 angle:0]];
+                        else if (card.owner == leftPlayer)
+                            [enhancementCard.thumbSprite runAction:[CCRotateTo actionWithDuration:0.0 angle:90]];
+                        else if (card.owner == rightPlayer)
+                            [enhancementCard.thumbSprite runAction:[CCRotateTo actionWithDuration:0.0 angle:270]];
+                        
                     }
                     enhancementBuffer += ENHANCEMENT_SPACING;
                 }
@@ -2041,38 +2034,57 @@ BOOL opponentReadyToPlay;
                 if (loopCard == card) {
                     if (player == localPlayer)
                         targetX = CARD_STARTX + i * CARD_SPACING;
-                    else
+                    else if (player == topPlayer)
                         targetX = 480-CARD_STARTX - i * CARD_SPACING;
+                    else if (player == leftPlayer)
+                        targetX = NAMETAG_SIDE_Y-60 - i * CARD_SPACING;
+                    else if (player == rightPlayer)
+                        targetX = 320-NAMETAG_SIDE_Y+60 + i * CARD_SPACING;
                 }
             }
-            [card.thumbSprite runAction: [CCMoveTo actionWithDuration:0.2 position:[self makeScaledPointx:targetX y:handY]]];
+            if (player == localPlayer || player == topPlayer)
+                [card.thumbSprite runAction: [CCMoveTo actionWithDuration:0.2 position:[self makeScaledPointx:targetX y:handY]]];
+            else if (player == leftPlayer || player == rightPlayer)
+                [card.thumbSprite runAction: [CCMoveTo actionWithDuration:0.2 position:[self makeScaledPointx:handY y:targetX]]];
         }
     }
 }
 - (void)setAllCardsToProperBrightness {
-    for (Card *card in playerHand) {
+    for (Card *card in localPlayer.hand) {
         [self setCardToProperBrightness:card withDelay:YES];
     }
-    for (Card *card in playerBoard) {
+    for (Card *card in localPlayer.board) {
         [self setCardToProperBrightness:card withDelay:YES];
         for (Card *enhancementCard in card.attachedCards) {
             [self setCardToProperBrightness:enhancementCard withDelay:YES];
         }
     }
-    for (Card *card in playerSideBoard) {
+    for (Card *card in leftPlayer.hand) {
         [self setCardToProperBrightness:card withDelay:YES];
     }
-    for (Card *card in opponentHand) {
-        [self setCardToProperBrightness:card withDelay:YES];
-    }
-    for (Card *card in opponentBoard) {
+    for (Card *card in leftPlayer.board) {
         [self setCardToProperBrightness:card withDelay:YES];
         for (Card *enhancementCard in card.attachedCards) {
             [self setCardToProperBrightness:enhancementCard withDelay:YES];
         }
     }
-    for (Card *card in opponentSideBoard) {
+    for (Card *card in topPlayer.hand) {
         [self setCardToProperBrightness:card withDelay:YES];
+    }
+    for (Card *card in topPlayer.board) {
+        [self setCardToProperBrightness:card withDelay:YES];
+        for (Card *enhancementCard in card.attachedCards) {
+            [self setCardToProperBrightness:enhancementCard withDelay:YES];
+        }
+    }
+    for (Card *card in rightPlayer.hand) {
+        [self setCardToProperBrightness:card withDelay:YES];
+    }
+    for (Card *card in rightPlayer.board) {
+        [self setCardToProperBrightness:card withDelay:YES];
+        for (Card *enhancementCard in card.attachedCards) {
+            [self setCardToProperBrightness:enhancementCard withDelay:YES];
+        }
     }
 }
 - (void)setCardToProperBrightness:(Card *)card withDelay:(BOOL)delay {
@@ -2241,12 +2253,12 @@ BOOL opponentReadyToPlay;
 }
 - (void)animateBoardsToProperLocation:(Player *)player {
     if (player == localPlayer) {
-        for (Card *loopCard in playerBoard) {
+        for (Card *loopCard in localPlayer.board) {
             [self animateCardToProperLocation:loopCard forPlayer:player];
         }
     }
     else {
-        for (Card *loopCard in opponentBoard) {
+        for (Card *loopCard in opponentPlayer.board) {
             [self animateCardToProperLocation:loopCard forPlayer:player];
         }
     }
@@ -2290,18 +2302,6 @@ BOOL opponentReadyToPlay;
     if (bigCard != nil) {
         [self removeChild:bigCard cleanup:YES];
         bigCard = nil;
-        if (attackButton != nil) {
-            [self removeChild:attackButton cleanup:YES];
-            attackButton = nil;
-        }
-        if (defendButton != nil) {
-            [self removeChild:defendButton cleanup:YES];
-            defendButton = nil;
-        }
-        if (abilityButton != nil) {
-            [self removeChild:abilityButton cleanup:YES];
-            abilityButton = nil;
-        }
         if (targetButton != nil) {
             [self removeChild:targetButton cleanup:YES];
             targetButton = nil;
@@ -2315,27 +2315,7 @@ BOOL opponentReadyToPlay;
     [self hideBigCard];
 }
 - (void)showButton:(NSString*)buttonName {
-    if ([buttonName isEqualToString:@"AttackButton"]) {
-        attackButton = [CCSprite spriteWithFile:@"AttackButton.png"];
-        [attackButton setScale:1.0];
-        [self addChild:attackButton z:zOrder+2];
-        attackButton.position = [self makeScaledPointx:SIDE_BUTTON_X+SIDE_BUTTON_MOVE_X y:TOP_BUTTON_Y];
-        [attackButton runAction:[CCMoveTo actionWithDuration:0.2 position:[self makeScaledPointx:SIDE_BUTTON_X y:TOP_BUTTON_Y]]];
-    }
-    else if ([buttonName isEqualToString:@"AbilityButton"]) {
-        abilityButton = [CCSprite spriteWithFile:@"AbilityButton.png"];
-        [self addChild:abilityButton z:zOrder+2];
-        abilityButton.position = [self makeScaledPointx:SIDE_BUTTON_X+SIDE_BUTTON_MOVE_X y:BOTTOM_BUTTON_Y];
-        [abilityButton runAction:[CCMoveTo actionWithDuration:0.2 position:[self makeScaledPointx:SIDE_BUTTON_X y:BOTTOM_BUTTON_Y]]]; 
-    }
-    else if ([buttonName isEqualToString:@"DefendButton"]) {
-        defendButton = [CCSprite spriteWithFile:@"DefendButton.png"];
-        [defendButton setScale:1.0];
-        [self addChild:defendButton z:zOrder+2];
-        defendButton.position = [self makeScaledPointx:SIDE_BUTTON_X+SIDE_BUTTON_MOVE_X y:TOP_BUTTON_Y];
-        [defendButton runAction:[CCMoveTo actionWithDuration:0.2 position:[self makeScaledPointx:SIDE_BUTTON_X y:TOP_BUTTON_Y]]];
-    }
-    else if ([buttonName isEqualToString:@"TargetButton"]) {
+    if ([buttonName isEqualToString:@"TargetButton"]) {
         targetButton = [CCSprite spriteWithFile:@"AbilityButton.png"];
         [self addChild:targetButton z:zOrder+2];
         targetButton.position = [self makeScaledPointx:SIDE_BUTTON_X+SIDE_BUTTON_MOVE_X y:TOP_BUTTON_Y];
@@ -2355,25 +2335,7 @@ BOOL opponentReadyToPlay;
     }
 }
 - (void)hideButton:(NSString*)buttonName {
-    if ([buttonName isEqualToString:@"AttackButton"]) {
-        id removeSprite = [CCCallFuncN actionWithTarget:self selector:@selector(cocosRemoveSprite:)];
-        id moveCard = [CCMoveTo actionWithDuration:0.2 position:[self makeScaledPointx:SIDE_BUTTON_X+SIDE_BUTTON_MOVE_X y:TOP_BUTTON_Y]];
-        [attackButton runAction:[CCSequence actions:moveCard, removeSprite, nil]];
-        attackButton = nil;
-    }
-    else if ([buttonName isEqualToString:@"AbilityButton"]) {
-        id removeSprite = [CCCallFuncN actionWithTarget:self selector:@selector(cocosRemoveSprite:)];
-        id moveCard = [CCMoveTo actionWithDuration:0.2 position:[self makeScaledPointx:SIDE_BUTTON_X+SIDE_BUTTON_MOVE_X y:BOTTOM_BUTTON_Y]];
-        [abilityButton runAction:[CCSequence actions:moveCard, removeSprite, nil]]; 
-        abilityButton = nil;
-    }
-    else if ([buttonName isEqualToString:@"DefendButton"]) {
-        id removeSprite = [CCCallFuncN actionWithTarget:self selector:@selector(cocosRemoveSprite:)];
-        id moveCard = [CCMoveTo actionWithDuration:0.2 position:[self makeScaledPointx:SIDE_BUTTON_X+SIDE_BUTTON_MOVE_X y:TOP_BUTTON_Y]];
-        [defendButton runAction:[CCSequence actions:moveCard, removeSprite, nil]];
-        defendButton = nil;
-    }
-    else if ([buttonName isEqualToString:@"TargetButton"]) {
+    if ([buttonName isEqualToString:@"TargetButton"]) {
         id removeSprite = [CCCallFuncN actionWithTarget:self selector:@selector(cocosRemoveSprite:)];
         id moveCard = [CCMoveTo actionWithDuration:0.2 position:[self makeScaledPointx:SIDE_BUTTON_X+SIDE_BUTTON_MOVE_X y:TOP_BUTTON_Y]];
         [targetButton runAction:[CCSequence actions:moveCard, removeSprite, nil]];
@@ -2519,12 +2481,6 @@ BOOL opponentReadyToPlay;
     [self floatText:0-damage forResource:nil forPlayer:player];
     [self updateResourcePanel];
     [self checkIfGameIsFinished];
-    
-    if (tutorial && player == opponentPlayer && player.hp == 19) {
-        id delay = [CCDelayTime actionWithDuration:2.0];
-        id showPopUp = [CCCallFuncND actionWithTarget:self selector:@selector(cocosShowTutorialWithName:data:) data:@"Health"];
-        [playButton runAction:[CCSequence actions:delay, showPopUp, nil]];
-    }
 }
 - (void)giveDamage:(int)damage toCard:(Card*)card {
 
@@ -2540,6 +2496,15 @@ BOOL opponentReadyToPlay;
     [self updateResourcePanel];
     [self floatText:0-resource.amount forResource:resource forPlayer:player];
 }
+- (int)getAngleForPlayer:(Player*)player {
+    if (player == leftPlayer)
+        return 90;
+    if (player == topPlayer)
+        return 180;
+    if (player == rightPlayer)
+        return 270;
+    return 0;
+}
          
 // HELPER FUNCTIONS
 - (void)cocosSetCardToProperBrightness:(id)sender data:(Card*)card {
@@ -2547,9 +2512,6 @@ BOOL opponentReadyToPlay;
 }
 - (void)cocosDealHandForPlayer:(id)sender data:(Player*)player {
     [self dealHandForPlayer:player];
-}
-- (void)cocosDestroyResourcesForPlayer:(id)sender data:(Player*)player {
-    [self destroyResourceBarForPlayer:player];
 }
 - (void)cocosPlaySoundForCard:(id)sender data:(Card *)card {
     [self playSoundForCard:card forAction:nil];
@@ -2607,18 +2569,18 @@ BOOL opponentReadyToPlay;
     [endTurnButton runAction:[CCMoveTo actionWithDuration:0.2 position:[self makeScaledPointx:ENDPHASE_X y:ENDPHASE_Y]]];
 }
 - (void)hideEndPhase {
-    [endTurnButton runAction:[CCMoveTo actionWithDuration:0.2 position:[self makeScaledPointx:ENDPHASE_X y:ENDPHASE_Y+20]]];
+    [endTurnButton runAction:[CCMoveTo actionWithDuration:0.2 position:[self makeScaledPointx:ENDPHASE_X y:ENDPHASE_Y+50]]];
 }
 - (void)selectCardAtLocation:(CGPoint)location {
     Card *lastPickedCard = pickedCard;
     pickedCard = nil;
-    for (Card *card in playerHand) {
+    for (Card *card in localPlayer.hand) {
         if (CGRectContainsPoint(card.thumbSprite.boundingBox, location)) {
             pickedCard = card;
         }
     }
     
-    for (Card *card in playerBoard) {
+    for (Card *card in localPlayer.board) {
         [self hideEnhancementsForCard:card];
         if (CGRectContainsPoint(card.thumbSprite.boundingBox, location)) {
             pickedCard = card;
@@ -2649,40 +2611,45 @@ BOOL opponentReadyToPlay;
     
     // OPPONENT CARDS
     if (opponentHandRevealed) {
-        for (Card *card in opponentHand) {
+        for (Card *card in opponentPlayer.hand) {
             if (CGRectContainsPoint(card.thumbSprite.boundingBox, location)) {
                 pickedCard = card;
             }
         }
     }
-    for (Card *card in opponentBoard) {
-        //[self hideEnhancementsForCard:card];
+    NSMutableArray *allBoards = [[NSMutableArray alloc] init];
+    [allBoards addObjectsFromArray:leftPlayer.board];
+    [allBoards addObjectsFromArray:topPlayer.board];
+    [allBoards addObjectsFromArray:rightPlayer.board];
+    for (Card *card in allBoards) {
+        [self hideEnhancementsForCard:card];
         if (CGRectContainsPoint(card.thumbSprite.boundingBox, location)) {
             pickedCard = card;
             // SHOW ENHANCEMENTS AND CYCLE THROUGH THEM
-            if (lastPickedCard == card) {
-                if ([card.attachedCards count] > 0) {
-                    //[self showEnhancementsForCard:card];
-                    pickedCard = [card.attachedCards objectAtIndex:[card.attachedCards count]-1];
-                    [self reorderChild:pickedCard.thumbSprite z:card.thumbSprite.zOrder+100];
+            if ([card.attachedCards count] > 0) {
+                Card *lastCard = [card.attachedCards objectAtIndex:[card.attachedCards count]-1];
+                if (lastPickedCard == card) {
+                    if ([card.attachedCards count] > 0) {
+                        [self showEnhancementsForCard:card];
+                        pickedCard = [card.attachedCards objectAtIndex:0];
+                        [self reorderChild:pickedCard.thumbSprite z:card.thumbSprite.zOrder+2];
+                    }
                 }
-            }
-            else if ([card.attachedCards containsObject:lastPickedCard]) {
-                if ([card.attachedCards count] > 1) {
-                    // CYCLE CARDS
-                    /*for (int i = 1; i < [card.attachedCards count]; i++) {
-                        [card.attachedCards exchangeObjectAtIndex:0 withObjectAtIndex:i];
-                    }*/
-                    //[self showEnhancementsForCard:card];
-                    pickedCard = [card.attachedCards objectAtIndex:[card.attachedCards count]-1];
-                    [self reorderChild:pickedCard.thumbSprite z:card.thumbSprite.zOrder+100];                    
+                else if (lastPickedCard == lastCard) {
+                    pickedCard = card;
+                    [self hideEnhancementsForCard:card];
                 }
-                else {
-                    //[self hideEnhancementsForCard:card];
+                else if ([card.attachedCards containsObject:lastPickedCard]) {
+                    int index = [card.attachedCards indexOfObject:lastPickedCard];
+                    index++;
+                    [self hideEnhancementsForCard:card];
+                    pickedCard = [card.attachedCards objectAtIndex:index];
+                    [self reorderChild:pickedCard.thumbSprite z:card.thumbSprite.zOrder+2];
                 }
             }
         }
     }
+    [allBoards release];
     
     [self setAllCardsToProperBrightness];
     if (pickedCard != nil) {
@@ -2707,29 +2674,6 @@ BOOL opponentReadyToPlay;
         }
     }
     
-    // CHECK IF ATTACK BUTTON IS PRESSED
-    if (attackButton != nil && CGRectContainsPoint(attackButton.boundingBox, location)) {
-        if (gamePhase == PLAYER_TURN) {
-            [self attackWithCard:pickedCard forPlayer:localPlayer];
-            [attackButton runAction:[CCMoveTo actionWithDuration:0.2 position:[self makeScaledPointx:SIDE_BUTTON_X+SIDE_BUTTON_MOVE_X y:TOP_BUTTON_Y]]];
-            return YES;
-        }
-    }
-    // CHECK IF DEFEND BUTTON IS PRESSED
-    if (defendButton != nil && CGRectContainsPoint(defendButton.boundingBox, location)) {
-        if (gamePhase == PLAYER_DEFEND) {
-            [self defendWithCard:pickedCard forPlayer:localPlayer];
-            [defendButton runAction:[CCMoveTo actionWithDuration:0.2 position:[self makeScaledPointx:SIDE_BUTTON_X+SIDE_BUTTON_MOVE_X y:TOP_BUTTON_Y]]];
-            return YES;
-        }
-    }
-    // CHECK IF ABILITY BUTTON IS PRESSED
-    if (abilityButton != nil && CGRectContainsPoint(abilityButton.boundingBox, location)) {
-        if (gamePhase == PLAYER_TURN || gamePhase == PLAYER_DEFEND) {
-            [self enterTargetMode];
-            return YES;
-        }
-    }
     
     // CHECK IF CANCEL BUTTON IS PRESSED
     if (cancelButton != nil && CGRectContainsPoint(cancelButton.boundingBox, location)) {
@@ -2824,12 +2768,10 @@ BOOL opponentReadyToPlay;
     [self removeChild:card.thumbSprite cleanup:YES];
     if (card.owner == localPlayer) {
         pickedCard = nil;
-        [playerBoard removeObject:card];
-        [playerSideBoard removeObject:card];
+        [localPlayer.board removeObject:card];
     }
     else {
-        [opponentBoard removeObject:card];
-        [opponentSideBoard removeObject:card];
+        [opponentPlayer.board removeObject:card];
     }
     [self animateBoardsToProperLocation:card.owner];
 }
@@ -2918,7 +2860,7 @@ BOOL opponentReadyToPlay;
         CCLOG(@"Opponent Played Card %@", message.cardName);
         Card *receivedCard = [factory spawnCard:message.cardName];
         Card *foundCard = nil;
-        for (Card *card in opponentHand) {
+        for (Card *card in opponentPlayer.hand) {
             if ([card isEqualToCard:receivedCard]) {
                 foundCard = card;
             }
@@ -2929,25 +2871,25 @@ BOOL opponentReadyToPlay;
                 CCLOG(@"Card is enhancement or action");
                 Card *foundTarget = nil;
                 if (message.targetCard) {
-                    for (Card *card in playerBoard) {
+                    for (Card *card in localPlayer.board) {
                         if ([card isEqualToCard:message.targetCard]) {
                             foundTarget = card;
                         }
                     }
-                    for (Card *card in opponentBoard) {
+                    for (Card *card in opponentPlayer.board) {
                         if ([card isEqualToCard:message.targetCard]) {
                             foundTarget = card;
                         }
                     }
                     if ([message.targetPlayer isEqualToString:@"Friendly"]) {
-                        for (Card *card in opponentBoard) {
+                        for (Card *card in opponentPlayer.board) {
                             if ([card isEqualToCard:message.targetCard]) {
                                 foundTarget = card;
                             }
                         }
                     }
                     if ([message.targetPlayer isEqualToString:@"Enemy"]) {
-                        for (Card *card in playerBoard) {
+                        for (Card *card in localPlayer.board) {
                             if ([card isEqualToCard:message.targetCard]) {
                                 foundTarget = card;
                             }
@@ -2971,7 +2913,7 @@ BOOL opponentReadyToPlay;
     }
     else if ([message.code isEqualToString:@"Attack"]) {
         Card *foundCard = nil;
-        for (Card *card in opponentBoard) {
+        for (Card *card in opponentPlayer.board) {
             if ([card isEqualToCard:message.card]) {
                 foundCard = card;
             }
@@ -2982,7 +2924,7 @@ BOOL opponentReadyToPlay;
     }
     else if ([message.code isEqualToString:@"Defend"]) {
         Card *foundCard = nil;
-        for (Card *card in opponentBoard) {
+        for (Card *card in opponentPlayer.board) {
             if ([card isEqualToCard:message.card]) {
                 foundCard = card;
             }
@@ -3000,19 +2942,19 @@ BOOL opponentReadyToPlay;
     else if ([message.code isEqualToString:@"Use Ability"]) {
         // CHECK FOR SOURCE CARD
         Card *sourceCard = nil;
-        for (Card *card in opponentBoard) {
+        for (Card *card in opponentPlayer.board) {
             if ([card isEqualToCard:message.card]) {
                 sourceCard = card;
             }
         }
         // CHECK FOR TARGET CARD
         Card *targetCard = nil;
-        for (Card *card in opponentBoard) {
+        for (Card *card in opponentPlayer.board) {
             if ([card isEqualToCard:message.targetCard]) {
                 targetCard = card;
             }
         }
-        for (Card *card in playerBoard) {
+        for (Card *card in localPlayer.board) {
             if ([card isEqualToCard:message.targetCard]) {
                 targetCard = card;
             }
@@ -3030,7 +2972,7 @@ BOOL opponentReadyToPlay;
     }
     
 }
-- (void)match:(GKMatch *)match player:(NSString *)playerID didChangeState:(GKPlayerConnectionState)state {       
+- (void)match:(GKMatch *)match player:(NSString *)playerID didChangeState:(GKPlayerConnectionState)state {
     switch (state) {
         case GKPlayerStateConnected: 
             // handle a new player connection.
@@ -3112,7 +3054,7 @@ BOOL opponentReadyToPlay;
     MultiplayerMessage *message = [[MultiplayerMessage alloc] init];
     message.code = @"Deck and Hand";
     message.cardArray = [[NSMutableArray alloc] init];
-    for (Card *card in playerHand) {
+    for (Card *card in localPlayer.hand) {
         [message.cardArray addObject:card.name];
     }
     message.deckArray = [[NSMutableArray alloc] init];

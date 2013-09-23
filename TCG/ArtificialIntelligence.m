@@ -26,11 +26,8 @@
 
 - (Card*)pickCardFromHand:(NSArray*)hand {
     for (Card *card in hand) {
-        if (![card.type isEqualToString:@"Resource"]) {
-            if ([player canPlayCard:card]) {
-                if ([card.type isEqualToString:@"Fighter"] || [self chooseTargetForCard:card] != nil || [card hasTargetType:@"Global"])
-                    return card;
-            }
+        if ([player canPlayCard:card]) {
+            return card;
         }
     }
     return nil;
@@ -77,7 +74,6 @@
     int totalDamage = 0;
     for (Card* loopCard in opponentBoard) {
         totalDamage += loopCard.totalAttack;
-        if (totalDamage >= player.hp)
             return YES;
     }
     return NO;

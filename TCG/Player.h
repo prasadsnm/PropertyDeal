@@ -21,7 +21,7 @@
     NSMutableArray *actionBoard;
     NSMutableArray *graveyard;
     ResourcePool *resourcePool;
-    int hp;
+    int cardsPlayedThisTurn;
     BOOL resourcePlayed;
 }
 
@@ -42,7 +42,7 @@
 @property (nonatomic, assign) NSMutableArray *actionBoard;
 @property (nonatomic, assign) NSMutableArray *graveyard;
 @property (nonatomic, assign) ResourcePool *resourcePool;
-@property (nonatomic) int hp;
+@property (nonatomic) int cardsPlayedThisTurn;
 @property (nonatomic) BOOL resourcePlayed;
 
 @end

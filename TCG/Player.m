@@ -13,7 +13,7 @@
 @synthesize ai;
 @synthesize deck;
 @synthesize resourcePool;
-@synthesize hp;
+@synthesize cardsPlayedThisTurn;
 @synthesize resourcePlayed;
 @synthesize hand;
 @synthesize board;
@@ -30,7 +30,6 @@
         board = [[NSMutableArray alloc] init];
         
         resourcePool = [[ResourcePool alloc] init];
-        hp = 20;
     }
     return self;
 }
@@ -51,10 +50,7 @@
 }
 
 - (void)takeDamage:(int)damage {
-    hp -= damage;
-    if (hp < 0) {
-        hp = 0;
-    }
+
 }
 
 - (Card*)hasCardThatCanKillCard:(Card*)card {
@@ -87,7 +83,6 @@
             otherPlayerUnusedCards++;
     }
     return (unusedCards >= otherPlayerUnusedCards);
-    
 }
 
 - (BOOL)hasTotalResourceValue:(int)value {

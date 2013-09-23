@@ -13,20 +13,22 @@
 -(Card*)spawnCard:(NSString*)cardName {
     Card *card;
     // ACTIONS
-    if ([cardName isEqualToString:@"GoFish"]) {
-        card = [[Card alloc] initWithName:cardName image:@"card.png" type:@"Action"];
+    if ([cardName isEqualToString:@"IdentityTheft"]) {
+        card = [[Card alloc] initWithName:cardName image:@"identitytheft.png" type:@"Action"];
+        [card addPassiveAbility:@"StealProperties"];
+        [card.abilityTargetTypes addObject:@"Property"];
     }
     // PROPERTIES
     else if ([cardName isEqualToString:@"RedProperty"]) {
-        card = [[Card alloc] initWithName:cardName image:@"propertyred.png" type:@"Property"];
+        card = [[Card alloc] initWithName:cardName image:@"milosplace.png" type:@"Property"];
         card.subType = @"Red";
     }
     else if ([cardName isEqualToString:@"PurpleProperty"]) {
-        card = [[Card alloc] initWithName:cardName image:@"propertypurple.png" type:@"Property"];
+        card = [[Card alloc] initWithName:cardName image:@"forestridge.png" type:@"Property"];
         card.subType = @"Purple";
     }
     else if ([cardName isEqualToString:@"LightBlueProperty"]) {
-        card = [[Card alloc] initWithName:cardName image:@"propertylightblue.png" type:@"Property"];
+        card = [[Card alloc] initWithName:cardName image:@"beachside.png" type:@"Property"];
         card.subType = @"LightBlue";
     }
     // MONEY
@@ -46,12 +48,22 @@
     [cardArray addObject:@"RedProperty"];
     [cardArray addObject:@"RedProperty"];
     [cardArray addObject:@"RedProperty"];
+    [cardArray addObject:@"RedProperty"];
+    [cardArray addObject:@"RedProperty"];
+    [cardArray addObject:@"PurpleProperty"];
+    [cardArray addObject:@"PurpleProperty"];
     [cardArray addObject:@"PurpleProperty"];
     [cardArray addObject:@"PurpleProperty"];
     [cardArray addObject:@"PurpleProperty"];
     [cardArray addObject:@"LightBlueProperty"];
     [cardArray addObject:@"LightBlueProperty"];
     [cardArray addObject:@"LightBlueProperty"];
+    [cardArray addObject:@"LightBlueProperty"];
+    [cardArray addObject:@"LightBlueProperty"];
+    [cardArray addObject:@"Money100"];
+    [cardArray addObject:@"Money100"];
+    [cardArray addObject:@"Money100"];
+    [cardArray addObject:@"Money100"];
     [cardArray addObject:@"Money100"];
     [cardArray addObject:@"Money100"];
     [cardArray addObject:@"Money100"];
@@ -61,7 +73,11 @@
     [cardArray addObject:@"Money500"];
     [cardArray addObject:@"Money500"];
     [cardArray addObject:@"Money500"];
-    
+    [cardArray addObject:@"IdentityTheft"];
+    [cardArray addObject:@"IdentityTheft"];
+    [cardArray addObject:@"IdentityTheft"];
+    [cardArray addObject:@"IdentityTheft"];
+    [cardArray addObject:@"IdentityTheft"];
     [cardArray autorelease];
     
     Deck *deck = [[Deck alloc] init];
